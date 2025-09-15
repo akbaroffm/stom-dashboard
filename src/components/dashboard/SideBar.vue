@@ -38,7 +38,7 @@ const handleMenuClick = (e) => {
 
 <template>
   <div class="h-screen flex flex-col bg-white">
-    <div class="mt-14">
+    <div class="mt-16">
       <Menu
         mode="inline"
         :inline-collapsed="collapsed"
@@ -73,3 +73,8 @@ const handleMenuClick = (e) => {
     </div>
   </div>
 </template>
+<style scoped>
+:deep(.anticon) {
+  font-size: 18px !important;
+}
+</style>

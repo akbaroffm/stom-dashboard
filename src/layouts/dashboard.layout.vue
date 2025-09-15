@@ -1,15 +1,9 @@
 <script setup>
 import { ref, computed } from "vue";
 import { Layout, Button, Breadcrumb } from "ant-design-vue";
-import {
-  MenuFoldOutlined,
-  MenuUnfoldOutlined,
-  UserOutlined,
-  SettingOutlined,
-  LogoutOutlined,
-} from "@ant-design/icons-vue";
+import { MenuFoldOutlined, MenuUnfoldOutlined } from "@ant-design/icons-vue";
 import { useRoute } from "vue-router";
-import SideBar from "@/components/dashboard/Sidebar.vue";
+import Sidebar from "@/components/dashboard/SideBar.vue";
 
 const route = useRoute();
 const collapsed = ref(false);
@@ -27,13 +21,6 @@ const breadcrumbItems = computed(() => {
   });
 });
 
-const userMenuItems = [
-  { key: "profile", icon: UserOutlined, label: "Profile" },
-  { key: "settings", icon: SettingOutlined, label: "Settings" },
-  { type: "divider" },
-  { key: "logout", icon: LogoutOutlined, label: "Logout", danger: true },
-];
-
 const toggleCollapse = () => (collapsed.value = !collapsed.value);
 </script>
 
@@ -47,7 +34,7 @@ const toggleCollapse = () => (collapsed.value = !collapsed.value);
       theme="dark"
       class="fixed h-screen border-r border-gray-200"
     >
-      <SideBar :collapsed="collapsed" />
+      <Sidebar :collapsed="collapsed" />
     </Layout.Sider>
 
     <Layout class="flex flex-col h-screen transition-all">
@@ -78,7 +65,7 @@ const toggleCollapse = () => (collapsed.value = !collapsed.value);
       </Layout.Header>
 
       <Layout.Content class="flex-1 overflow-y-auto bg-gray-100">
-        <div class="m-4 p-4 bg-white rounded">
+        <div class="m-4 p-4 bg-white rounded min-h-full">
           <RouterView />
         </div>
       </Layout.Content>

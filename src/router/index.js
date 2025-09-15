@@ -35,41 +35,32 @@ const router = createRouter({
         {
           path: "",
           name: "dashboard-dashboard",
-          meta: { title: "Dashboard", icon: "DashboardOutlined" },
+          meta: { title: "Asosiy", icon: "DashboardOutlined" },
           component: () => import("@/views/dashboard/dashboard.view.vue"),
+        },
+        {
+          path: "queues",
+          name: "dashboard-queues",
+          meta: { title: "Navbatlar", icon: "TeamOutlined" },
+          component: () => import("@/views/dashboard/queues.view.vue"),
         },
         {
           path: "clients",
           name: "dashboard-clients",
-          meta: { title: "Clients", icon: "UserOutlined" },
+          meta: { title: "Bemorlar", icon: "UserOutlined" },
           component: () => import("@/views/dashboard/clients.view.vue"),
         },
         {
           path: "notes",
           name: "dashboard-notes",
-          meta: { title: "Notes", icon: "FileTextOutlined" },
+          meta: { title: "Eslatmalar", icon: "BellOutlined" },
           component: () => import("@/views/dashboard/notes.view.vue"),
         },
         {
-          path: "reports",
-          name: "dashboard-reports",
-          meta: { title: "Reports", icon: "BarChartOutlined" },
-          children: [
-            {
-              path: "analytics",
-              name: "dashboard-reports-analytics",
-              meta: { title: "Analytics" },
-              // component: () =>
-              //   import("@/views/dashboard/reports/analytics.view.vue"),
-            },
-            {
-              path: "performance",
-              name: "dashboard-reports-performance",
-              meta: { title: "Performance" },
-              // component: () =>
-              //   import("@/views/dashboard/reports/performance.view.vue"),
-            },
-          ],
+          path: "finance",
+          name: "dashboard-finance",
+          meta: { title: "Moliya", icon: "LineChartOutlined" },
+          component: () => import("@/views/dashboard/finance.view.vue"),
         },
       ],
     },
