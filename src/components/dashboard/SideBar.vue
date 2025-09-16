@@ -38,7 +38,7 @@ const handleMenuClick = (e) => {
 
 <template>
   <div class="h-screen flex flex-col bg-white">
-    <div class="mt-16">
+    <div class="mt-0 md:mt-16">
       <Menu
         mode="inline"
         :inline-collapsed="collapsed"
@@ -76,5 +76,8 @@ const handleMenuClick = (e) => {
 <style scoped>
 :deep(.anticon) {
   font-size: 18px !important;
+}
+:deep(.ant-menu-light.ant-menu-root.ant-menu-inline) {
+  border-right: none;
 }
 </style>

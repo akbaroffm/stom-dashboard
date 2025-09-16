@@ -163,6 +163,7 @@ const resetForm = () => {
           showSizeChanger: true,
           pageSizeOptions: ['10', '20', '50', '100'],
         }"
+        :scroll="{ x: 800 }"
         row-key="id"
       >
         <template #bodyCell="{ column, record }">

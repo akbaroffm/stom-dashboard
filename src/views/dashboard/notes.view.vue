@@ -371,7 +371,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="min-h-screen">
+  <div>
     <div v-if="patients.length === 0" class="text-center py-8 text-gray-500">
       <AlertOutlined class="text-2xl mb-2 mx-auto" />
       <p>Avval bemor qo'shing</p>
@@ -429,7 +429,9 @@ onMounted(() => {
       <div
         class="flex flex-col sm:flex-row justify-between items-start sm:items-center pt-4 px-4"
       >
-        <h2 class="text-lg font-semibold text-gray-800 !mb-0">
+        <h2
+          class="text-base lg:text-lg font-semibold text-gray-800 mb-2 md:!mb-0"
+        >
           {{ selectedPatient.fullName }} uchun eslatmalar
         </h2>
         <a-button @click="showModal" type="primary" class="w-full sm:w-auto">
