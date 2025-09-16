@@ -6,9 +6,8 @@ import {
   UserOutlined,
   CalendarOutlined,
   ClockCircleOutlined,
-  DollarOutlined,
 } from "@ant-design/icons-vue";
-import { reactive, ref } from "vue";
+import { reactive, ref, onMounted, onUnmounted } from "vue";
 import dayjs from "dayjs";
 
 const formatDateUz = (dateStr) => {
@@ -34,8 +33,6 @@ const formatDateUz = (dateStr) => {
 
   const monthName = months[date.getMonth()];
   const dayNum = date.getDate();
-  // const yearNum = date.getFullYear();
-
   return `${dayNum}-${monthName}`;
 };
 
@@ -74,6 +71,7 @@ const appointments = ref({
 
 const draggedItem = ref(null);
 const draggedFrom = ref(null);
+const isMobile = ref(false);
 
 const modalOpen = ref(false);
 const confirmLoading = ref(false);
@@ -96,26 +94,63 @@ const treatmentOptions = [
   "Breket qo'yish",
 ];
 
+// Detect if device is mobile (tablet or phone)
+const checkIsMobile = () => {
+  const touchAvailable =
+    "ontouchstart" in window || navigator.maxTouchPoints > 0;
+  const isSmallScreen = window.innerWidth < 1024; // lg breakpoint
+  isMobile.value = touchAvailable || isSmallScreen;
+};
+
+// Update isMobile on window resize
+const handleResize = () => {
+  checkIsMobile();
+};
+
+onMounted(() => {
+  checkIsMobile();
+  window.addEventListener("resize", handleResize);
+});
+
+onUnmounted(() => {
+  window.removeEventListener("resize", handleResize);
+});
+
 const onDragStart = (item, from) => {
-  draggedItem.value = item;
-  draggedFrom.value = from;
+  if (!isMobile.value) {
+    draggedItem.value = item;
+    draggedFrom.value = from;
+  }
 };
 
 const onDragOver = (event) => {
-  event.preventDefault();
+  if (!isMobile.value) {
+    event.preventDefault();
+  }
 };
 
 const onDrop = (to) => {
-  if (draggedItem.value && draggedFrom.value !== to) {
-    // Eski ustundan olib tashlash
+  if (!isMobile.value && draggedItem.value && draggedFrom.value !== to) {
     appointments.value[draggedFrom.value] = appointments.value[
       draggedFrom.value
     ].filter((item) => item.id !== draggedItem.value.id);
-
-    // Yangi ustunga qo'shish
     appointments.value[to].push(draggedItem.value);
+    message.success("Bemor muvaffaqiyatli ko'chirildi!");
+  }
+};
 
-    // message.success("Bemor muvaffaqiyatli ko'chirildi!");
+const moveAppointment = (appointmentId, fromStatus, toStatus) => {
+  if (fromStatus !== toStatus) {
+    const appointment = appointments.value[fromStatus].find(
+      (app) => app.id === appointmentId
+    );
+    if (appointment) {
+      appointments.value[fromStatus] = appointments.value[fromStatus].filter(
+        (app) => app.id !== appointmentId
+      );
+      appointments.value[toStatus].push(appointment);
+      message.success("Bemor muvaffaqiyatli ko'chirildi!");
+    }
   }
 };
 
@@ -149,7 +184,6 @@ const handleOk = () => {
 
   setTimeout(() => {
     if (editingAppointment.value) {
-      // Tahrirlash
       const index = appointments.value.waiting.findIndex(
         (app) => app.id === editingAppointment.value.id
       );
@@ -165,7 +199,6 @@ const handleOk = () => {
         message.success("Qabul muvaffaqiyatli yangilandi!");
       }
     } else {
-      // Yangi qo'shish
       const newAppointment = {
         id:
           Math.max(
@@ -195,6 +228,7 @@ const resetForm = () => {
   formState.price = 0;
 };
 </script>
+
 <template>
   <div class="pb-4">
     <div class="flex justify-end mb-2">
@@ -207,6 +241,7 @@ const resetForm = () => {
       <!-- Kutilmoqda -->
       <div
         class="bg-[#F3F4F6] rounded-lg p-4"
+        :class="{ 'drag-target': !isMobile }"
         @dragover="onDragOver"
         @drop="() => onDrop('waiting')"
       >
@@ -223,7 +258,7 @@ const resetForm = () => {
           v-if="appointments.waiting.length > 0"
           v-for="appointment in sortedAppointments(appointments.waiting)"
           :key="appointment.id"
-          draggable="true"
+          :draggable="!isMobile"
           @dragstart="onDragStart(appointment, 'waiting')"
           class="mb-3 cursor-grab shadow-xs hover:shadow-sm transition-shadow duration-200 bg-white rounded-lg p-4 border-l-4 border-[#EAB308]"
         >
@@ -254,8 +289,14 @@ const resetForm = () => {
               appointment.treatment
             }}</span>
           </div>
-          <div class="flex justify-end gap-2 mt-1">
-            <a-tooltip title="O'chirish">
+          <div
+            class="flex gap-2"
+            :class="{
+              'justify-between mt-4': isMobile,
+              'justify-end mt-2': !isMobile,
+            }"
+          >
+            <div>
               <a-popconfirm
                 title="Rostdan o'chirmoqchimisiz?"
                 ok-text="Ha"
@@ -266,9 +307,6 @@ const resetForm = () => {
                   <template #icon><DeleteOutlined /></template>
                 </a-button>
               </a-popconfirm>
-            </a-tooltip>
-
-            <a-tooltip title="Tahrirlash">
               <a-button
                 size="small"
                 type="text"
@@ -276,7 +314,25 @@ const resetForm = () => {
               >
                 <template #icon><EditOutlined /></template>
               </a-button>
-            </a-tooltip>
+            </div>
+            <div v-if="isMobile" class="flex gap-2">
+              <a-button
+                size="small"
+                type="primary"
+                class="!bg-[#10B981]"
+                @click="moveAppointment(appointment.id, 'waiting', 'completed')"
+              >
+                Bajarildi
+              </a-button>
+              <a-button
+                size="small"
+                type="primary"
+                class="!bg-[#EF4444]"
+                @click="moveAppointment(appointment.id, 'waiting', 'cancelled')"
+              >
+                Bekor qilindi
+              </a-button>
+            </div>
           </div>
         </div>
         <div
@@ -290,8 +346,9 @@ const resetForm = () => {
       <!-- Bajarildi -->
       <div
         class="bg-[#F3F4F6] rounded-lg p-4"
-        @drop="() => onDrop('completed')"
+        :class="{ 'drag-target': !isMobile }"
         @dragover="onDragOver"
+        @drop="() => onDrop('completed')"
       >
         <span
           class="font-semibold flex justify-between items-center mb-4 text-[17px] text-[#374151]"
@@ -306,7 +363,7 @@ const resetForm = () => {
           v-if="appointments.completed.length > 0"
           v-for="appointment in sortedAppointments(appointments.completed)"
           :key="appointment.id"
-          draggable="true"
+          :draggable="!isMobile"
           @dragstart="onDragStart(appointment, 'completed')"
           class="mb-3 cursor-grab shadow-xs hover:shadow-sm transition-shadow duration-200 bg-white rounded-lg p-4 border-l-4 border-[#10B981]"
         >
@@ -335,21 +392,24 @@ const resetForm = () => {
           <div class="flex flex-col">
             <span class="text-[#808080]">{{ appointment.treatment }}</span>
           </div>
-          <div class="flex justify-end gap-2 mt-2">
-            <a-tooltip title="O'chirish">
+          <div
+            class="flex gap-2"
+            :class="{
+              'justify-between mt-4': isMobile,
+              'justify-end mt-2': !isMobile,
+            }"
+          >
+            <div>
               <a-popconfirm
                 title="Rostdan o'chirmoqchimisiz?"
                 ok-text="Ha"
                 cancel-text="Yo‘q"
-                @confirm="deleteAppointment(appointment.id, 'waiting')"
+                @confirm="deleteAppointment(appointment.id, 'completed')"
               >
                 <a-button size="small" type="text" danger>
                   <template #icon><DeleteOutlined /></template>
                 </a-button>
               </a-popconfirm>
-            </a-tooltip>
-
-            <a-tooltip title="Tahrirlash">
               <a-button
                 size="small"
                 type="text"
@@ -357,7 +417,27 @@ const resetForm = () => {
               >
                 <template #icon><EditOutlined /></template>
               </a-button>
-            </a-tooltip>
+            </div>
+            <div v-if="isMobile" class="flex gap-2">
+              <a-button
+                size="small"
+                type="primary"
+                class="!bg-[#EAB308]"
+                @click="moveAppointment(appointment.id, 'completed', 'waiting')"
+              >
+                Kutilmoqda
+              </a-button>
+              <a-button
+                size="small"
+                type="primary"
+                class="!bg-[#EF4444]"
+                @click="
+                  moveAppointment(appointment.id, 'completed', 'cancelled')
+                "
+              >
+                Bekor qilindi
+              </a-button>
+            </div>
           </div>
         </div>
         <div
@@ -371,8 +451,9 @@ const resetForm = () => {
       <!-- Bekor qilindi -->
       <div
         class="bg-[#F3F4F6] rounded-lg p-4"
-        @drop="() => onDrop('cancelled')"
+        :class="{ 'drag-target': !isMobile }"
         @dragover="onDragOver"
+        @drop="() => onDrop('cancelled')"
       >
         <span
           class="font-semibold flex justify-between items-center mb-4 text-[17px] text-[#374151]"
@@ -387,7 +468,7 @@ const resetForm = () => {
           v-if="appointments.cancelled.length > 0"
           v-for="appointment in sortedAppointments(appointments.cancelled)"
           :key="appointment.id"
-          draggable="true"
+          :draggable="!isMobile"
           @dragstart="onDragStart(appointment, 'cancelled')"
           class="mb-3 cursor-grab shadow-xs hover:shadow-sm transition-shadow duration-200 bg-white rounded-lg p-4 border-l-4 border-[#EF4444]"
         >
@@ -417,20 +498,17 @@ const resetForm = () => {
             <span class="text-[#808080]">{{ appointment.treatment }}</span>
           </div>
           <div class="flex justify-end gap-2 mt-2">
-            <a-tooltip title="O'chirish">
+            <div>
               <a-popconfirm
                 title="Rostdan o'chirmoqchimisiz?"
                 ok-text="Ha"
                 cancel-text="Yo‘q"
-                @confirm="deleteAppointment(appointment.id, 'waiting')"
+                @confirm="deleteAppointment(appointment.id, 'cancelled')"
               >
                 <a-button size="small" type="text" danger>
                   <template #icon><DeleteOutlined /></template>
                 </a-button>
               </a-popconfirm>
-            </a-tooltip>
-
-            <a-tooltip title="Tahrirlash">
               <a-button
                 size="small"
                 type="text"
@@ -438,7 +516,27 @@ const resetForm = () => {
               >
                 <template #icon><EditOutlined /></template>
               </a-button>
-            </a-tooltip>
+            </div>
+            <!-- <div v-if="isMobile" class="flex gap-2">
+              <a-button
+                size="small"
+                type="primary"
+                class="!bg-[#EAB308]"
+                @click="moveAppointment(appointment.id, 'cancelled', 'waiting')"
+              >
+                Kutilmoqda
+              </a-button>
+              <a-button
+                size="small"
+                type="primary"
+                class="!bg-[#10B981]"
+                @click="
+                  moveAppointment(appointment.id, 'cancelled', 'completed')
+                "
+              >
+                Bajarildi
+              </a-button>
+            </div> -->
           </div>
         </div>
         <div
@@ -508,23 +606,11 @@ const resetForm = () => {
             />
           </a-form-item>
         </div>
-        <!-- <a-form-item label="Narxi (so'm)">
-          <a-input-number
-            v-model:value="formState.price"
-            style="width: 100%"
-            :min="0"
-            :step="10"
-            :formatter="
-              (value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-            "
-            :parser="(value) => value.replace(/\$\s?|(,*)/g, '')"
-            :controls="false"
-          />
-        </a-form-item> -->
       </a-form>
     </a-modal>
   </div>
 </template>
+
 <style scoped>
 :deep(.ant-form-item) {
   margin-bottom: 12px !important;
@@ -534,5 +620,8 @@ const resetForm = () => {
 }
 .font {
   font-family: "Lato", sans-serif;
+}
+.drag-target {
+  cursor: grab;
 }
 </style>

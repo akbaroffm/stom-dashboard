@@ -458,33 +458,29 @@ onMounted(() => {
               </h3>
             </div>
             <div class="flex gap-1 sm:gap-2">
-              <a-tooltip title="Tahrirlash">
+              <a-button
+                size="small"
+                type="text"
+                @click="editNote(note)"
+                class="text-blue-600 hover:text-blue-800"
+              >
+                <template #icon><EditOutlined /></template>
+              </a-button>
+              <a-popconfirm
+                title="Rostdan o'chirmoqchimisiz?"
+                ok-text="Ha"
+                cancel-text="Yo'q"
+                @confirm="deleteNote(note.id)"
+              >
                 <a-button
                   size="small"
                   type="text"
-                  @click="editNote(note)"
-                  class="text-blue-600 hover:text-blue-800"
+                  danger
+                  class="text-red-600 hover:text-red-800"
                 >
-                  <template #icon><EditOutlined /></template>
+                  <template #icon><DeleteOutlined /></template>
                 </a-button>
-              </a-tooltip>
-              <a-tooltip title="O'chirish">
-                <a-popconfirm
-                  title="Rostdan o'chirmoqchimisiz?"
-                  ok-text="Ha"
-                  cancel-text="Yo'q"
-                  @confirm="deleteNote(note.id)"
-                >
-                  <a-button
-                    size="small"
-                    type="text"
-                    danger
-                    class="text-red-600 hover:text-red-800"
-                  >
-                    <template #icon><DeleteOutlined /></template>
-                  </a-button>
-                </a-popconfirm>
-              </a-tooltip>
+              </a-popconfirm>
             </div>
           </div>
 

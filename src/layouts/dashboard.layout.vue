@@ -88,6 +88,16 @@ const toggleCollapse = () => {
 const closeMobileMenu = () => {
   mobileMenuOpen.value = false;
 };
+
+const handleMenuItemClick = () => {
+  if (isMobile.value) {
+    mobileMenuOpen.value = false;
+  }
+  // Tabletda ham yopish kerak bo'lsa:
+  // else if (isTablet.value) {
+  //   collapsed.value = true;
+  // }
+};
 </script>
 
 <template>
@@ -102,7 +112,7 @@ const closeMobileMenu = () => {
       theme="light"
       class="fixed left-0 top-0 h-screen b shadow-sm z-30 transition-all duration-300"
     >
-      <Sidebar :collapsed="collapsed" />
+      <Sidebar :collapsed="collapsed" @menu-item-click="handleMenuItemClick" />
     </Layout.Sider>
 
     <!-- Mobile Drawer Menu -->
@@ -117,7 +127,7 @@ const closeMobileMenu = () => {
       @close="closeMobileMenu"
     >
       <div class="h-full bg-white -mt-4">
-        <Sidebar :collapsed="false" />
+        <Sidebar :collapsed="false" @menu-item-click="handleMenuItemClick" />
       </div>
     </Drawer>
 
@@ -167,7 +177,7 @@ const closeMobileMenu = () => {
           <div
             class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center"
           >
-            <span class="text-white text-sm font-medium">U</span>
+            <span class="text-white text-sm font-medium">M</span>
           </div>
         </div>
       </Layout.Header>
@@ -177,7 +187,7 @@ const closeMobileMenu = () => {
         <div class="h-full bg-gray-50">
           <!-- Content wrapper -->
           <div class="h-full">
-            <!-- bg-white endi to‘liq balandlik oladi -->
+            <!-- bg-white endi to'liq balandlik oladi -->
             <div class="bg-white h-full flex flex-col">
               <!-- faqat shu joy scroll qiladi -->
               <div class="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6">
@@ -190,6 +200,7 @@ const closeMobileMenu = () => {
     </Layout>
   </Layout>
 </template>
+
 <style>
 .ant-drawer-body {
   padding: 24px 12px !important;

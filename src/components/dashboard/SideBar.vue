@@ -13,6 +13,7 @@ const router = useRouter();
 
 const selectedKeys = ref([route.path]);
 const openKeys = ref([]);
+const emit = defineEmits(["menu-item-click"]);
 
 const dashboardRoutes =
   router.getRoutes().find((r) => r.name === "dashboard-layout")?.children || [];
@@ -31,13 +32,15 @@ watch(
   { immediate: true }
 );
 
-const handleMenuClick = (e) => {
-  router.push(e.key);
+const handleMenuClick = ({ key }) => {
+  router.push(key);
+
+  emit("menu-item-click");
 };
 </script>
 
 <template>
-  <div class="h-screen flex flex-col bg-white">
+  <div class="flex flex-col bg-white">
     <div class="mt-0 md:mt-16">
       <Menu
         mode="inline"
