@@ -319,7 +319,7 @@ const resetForm = () => {
               <a-button
                 size="small"
                 type="primary"
-                class="!bg-[#10B981]"
+                class="!bg-[#10B981] !shadow-none"
                 @click="moveAppointment(appointment.id, 'waiting', 'completed')"
               >
                 Bajarildi
@@ -327,7 +327,7 @@ const resetForm = () => {
               <a-button
                 size="small"
                 type="primary"
-                class="!bg-[#EF4444]"
+                class="!bg-[#EF4444] !shadow-none"
                 @click="moveAppointment(appointment.id, 'waiting', 'cancelled')"
               >
                 Bekor qilindi
@@ -422,7 +422,7 @@ const resetForm = () => {
               <a-button
                 size="small"
                 type="primary"
-                class="!bg-[#EAB308]"
+                class="!bg-[#EAB308] !shadow-none"
                 @click="moveAppointment(appointment.id, 'completed', 'waiting')"
               >
                 Kutilmoqda
@@ -430,7 +430,7 @@ const resetForm = () => {
               <a-button
                 size="small"
                 type="primary"
-                class="!bg-[#EF4444]"
+                class="!bg-[#EF4444] !shadow-none"
                 @click="
                   moveAppointment(appointment.id, 'completed', 'cancelled')
                 "

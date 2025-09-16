@@ -190,7 +190,7 @@ const handleMenuItemClick = () => {
             <!-- bg-white endi to'liq balandlik oladi -->
             <div class="bg-white h-full flex flex-col">
               <!-- faqat shu joy scroll qiladi -->
-              <div class="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6">
+              <div class="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6 my-10">
                 <RouterView />
               </div>
             </div>
