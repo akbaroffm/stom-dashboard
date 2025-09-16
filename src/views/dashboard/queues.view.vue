@@ -285,7 +285,7 @@ const resetForm = () => {
             </div>
           </div>
           <div class="flex flex-col">
-            <span class="text-[#808080] text-sm">{{
+            <span class="text-[#3e3e3e] text-sm">{{
               appointment.treatment
             }}</span>
           </div>
@@ -377,7 +377,7 @@ const resetForm = () => {
               }}</span>
             </div>
             <div
-              class="flex items-center gap-2 2xl:text-xs text-xs font-medium text-gray-600 bg-gray-100 px-3 py-1 rounded-md"
+              class="flex items-center gap-2 2xl:text-xs font-medium text-gray-600 bg-gray-100 px-3 py-1 rounded-md"
             >
               <div class="flex items-center gap-2">
                 <CalendarOutlined class="text-gray-500 mb-0.5" />
@@ -482,7 +482,7 @@ const resetForm = () => {
               }}</span>
             </div>
             <div
-              class="flex items-center gap-2 2xl:text-xs text-xs font-medium text-gray-600 bg-gray-100 px-3 py-1 rounded-md"
+              class="flex items-center gap-2 2xl:text-xs font-medium text-gray-600 bg-gray-100 px-3 py-1 rounded-md"
             >
               <div class="flex items-center gap-2">
                 <CalendarOutlined class="text-gray-500 mb-0.5" />
