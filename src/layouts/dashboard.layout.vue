@@ -1,14 +1,20 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from "vue";
-import { Layout, Button, Breadcrumb, Drawer } from "ant-design-vue";
+import { ref, computed, onMounted, onUnmounted, watch, h } from "vue";
+import { Layout, Button, Breadcrumb, Drawer, message } from "ant-design-vue";
 import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   MenuOutlined,
+  LogoutOutlined,
 } from "@ant-design/icons-vue";
 import { useRoute } from "vue-router";
 import Sidebar from "@/components/dashboard/SideBar.vue";
+import router from "@/router";
+import { useLoading } from "@/stores/loading";
+import { useFetch } from "@/composable/useFetch";
 
+const loadingStore = useLoading();
+const { $post } = useFetch();
 const route = useRoute();
 const collapsed = ref(false);
 const mobileMenuOpen = ref(false);
@@ -98,6 +104,21 @@ const handleMenuItemClick = () => {
   //   collapsed.value = true;
   // }
 };
+
+async function handleLogout() {
+  loadingStore.startLoadingFn();
+  try {
+    await $post("/Auth/Logout");
+    message.success("Muvaffaqiyatli chiqdingiz");
+
+    router.push({
+      path: "/auth",
+    });
+    loadingStore.stopLoadingFn();
+  } catch (error) {
+    message.error("Xatolik yuz berdi");
+  }
+}
 </script>
 
 <template>
@@ -137,49 +158,53 @@ const handleMenuItemClick = () => {
       <Layout.Header
         class="!bg-white !flex !justify-between !items-center !p-0 !h-14 md:!h-16 border-b border-gray-200 shadow-sm"
       >
-        <div class="flex items-center gap-2 md:gap-4 px-3 md:px-6 w-full">
+        <div class="flex items-center justify-between px-3 md:px-6 w-full">
           <!-- Menu Toggle Button -->
-          <Button
-            type="text"
-            :size="isMobile ? 'middle' : 'large'"
-            @click="toggleCollapse"
-            class="!flex !items-center !justify-center"
-          >
-            <MenuOutlined v-if="isMobile" class="!text-lg" />
-            <MenuUnfoldOutlined v-else-if="collapsed" class="!text-lg" />
-            <MenuFoldOutlined v-else class="!text-lg" />
-          </Button>
-
-          <!-- Breadcrumb - hidden on very small screens -->
-          <Breadcrumb class="!mt-0 hidden xs:block">
-            <Breadcrumb.Item
-              v-for="item in breadcrumbItems"
-              :key="item.path"
-              class="!text-xs sm:!text-sm"
+          <div>
+            <Button
+              type="text"
+              :size="isMobile ? 'middle' : 'large'"
+              @click="toggleCollapse"
+              class="!flex !items-center !justify-center"
             >
-              <router-link
-                v-if="!item.isLast"
-                :to="item.path"
-                class="text-gray-500 hover:text-blue-500 transition-colors"
+              <MenuOutlined v-if="isMobile" class="!text-lg" />
+              <MenuUnfoldOutlined v-else-if="collapsed" class="!text-lg" />
+              <MenuFoldOutlined v-else class="!text-lg" />
+            </Button>
+
+            <!-- Breadcrumb - hidden on very small screens -->
+            <Breadcrumb class="!mt-0 hidden xs:block">
+              <Breadcrumb.Item
+                v-for="item in breadcrumbItems"
+                :key="item.path"
+                class="!text-xs sm:!text-sm"
               >
-                {{ item.title }}
-              </router-link>
-              <span v-else class="font-medium text-gray-800">
-                {{ item.title }}
-              </span>
-            </Breadcrumb.Item>
-          </Breadcrumb>
+                <router-link
+                  v-if="!item.isLast"
+                  :to="item.path"
+                  class="text-gray-500 hover:text-blue-500 transition-colors"
+                >
+                  {{ item.title }}
+                </router-link>
+                <span v-else class="font-medium text-gray-800">
+                  {{ item.title }}
+                </span>
+              </Breadcrumb.Item>
+            </Breadcrumb>
+          </div>
+
+          <a-popconfirm
+            title="Rostdan tizimdan chiqmoqchimisiz?"
+            @confirm="handleLogout"
+          >
+            <a-button class="!flex !items-center" type="primary" danger>
+              <LogoutOutlined />
+              Chiqish
+            </a-button>
+          </a-popconfirm>
         </div>
 
         <!-- Header Actions (Optional) -->
-        <div class="flex items-center gap-2 md:gap-4 px-3 md:px-6">
-          <!-- You can add profile, notifications, etc. here -->
-          <div
-            class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center"
-          >
-            <span class="text-white text-sm font-medium">M</span>
-          </div>
-        </div>
       </Layout.Header>
 
       <!-- Content -->

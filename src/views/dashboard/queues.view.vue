@@ -9,6 +9,7 @@ import {
 } from "@ant-design/icons-vue";
 import { reactive, ref, onMounted, onUnmounted } from "vue";
 import dayjs from "dayjs";
+import { useFetch } from "@/composable/useFetch";
 
 const formatDateUz = (dateStr) => {
   if (!dateStr) return "";
@@ -55,6 +56,7 @@ const appointments = ref({
       patientName: "Og'abek Hamzakulov",
       treatment: "Konsultatsiya",
       date: "2025-09-08",
+      price: 100000,
       time: "14:00",
     },
     {
@@ -62,6 +64,7 @@ const appointments = ref({
       patientName: "Mirolim Akbarov",
       treatment: "Plomba qo'yish",
       date: "2025-09-08",
+      price: 300000,
       time: "15:00",
     },
   ],
@@ -82,6 +85,7 @@ const formState = reactive({
   treatment: "Konsultatsiya",
   date: null,
   time: null,
+  price: null,
 });
 
 const treatmentOptions = [
@@ -135,7 +139,6 @@ const onDrop = (to) => {
       draggedFrom.value
     ].filter((item) => item.id !== draggedItem.value.id);
     appointments.value[to].push(draggedItem.value);
-    message.success("Bemor muvaffaqiyatli ko'chirildi!");
   }
 };
 
@@ -149,7 +152,6 @@ const moveAppointment = (appointmentId, fromStatus, toStatus) => {
         (app) => app.id !== appointmentId
       );
       appointments.value[toStatus].push(appointment);
-      message.success("Bemor muvaffaqiyatli ko'chirildi!");
     }
   }
 };
@@ -220,12 +222,25 @@ const handleOk = () => {
   }, 2000);
 };
 
+const priceFormatter = new Intl.NumberFormat("uz-UZ", {
+  currency: "UZS",
+  minimumFractionDigits: 0,
+});
+
+const onlyNumber = (event) => {
+  const charCode = event.charCode;
+  // Faqat 0–9 ga ruxsat
+  if (charCode < 48 || charCode > 57) {
+    event.preventDefault();
+  }
+};
+
 const resetForm = () => {
   formState.patientName = "";
   formState.treatment = "Konsultatsiya";
   formState.date = null;
   formState.time = null;
-  formState.price = 0;
+  formState.price = null;
 };
 </script>
 
@@ -237,7 +252,9 @@ const resetForm = () => {
       }}</a-button>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 h-[300px]">
+    <div
+      class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 xl:gap-6 gap-4 h-[300px]"
+    >
       <!-- Kutilmoqda -->
       <div
         class="bg-[#F3F4F6] rounded-lg p-4"
@@ -284,10 +301,11 @@ const resetForm = () => {
               </div>
             </div>
           </div>
-          <div class="flex flex-col">
-            <span class="text-[#3e3e3e] text-sm">{{
-              appointment.treatment
-            }}</span>
+          <div class="flex items-center justify-between pt-2">
+            <span>{{ appointment.treatment }}</span>
+            <span>
+              <span>{{ priceFormatter.format(appointment.price) }} so'm</span>
+            </span>
           </div>
           <div
             class="flex gap-2"
@@ -389,8 +407,11 @@ const resetForm = () => {
               </div>
             </div>
           </div>
-          <div class="flex flex-col">
-            <span class="text-[#808080]">{{ appointment.treatment }}</span>
+          <div class="flex items-center justify-between pt-2">
+            <span>{{ appointment.treatment }}</span>
+            <span>
+              <span>{{ priceFormatter.format(appointment.price) }} so'm</span>
+            </span>
           </div>
           <div
             class="flex gap-2"
@@ -494,8 +515,11 @@ const resetForm = () => {
               </div>
             </div>
           </div>
-          <div class="flex flex-col">
-            <span class="text-[#808080]">{{ appointment.treatment }}</span>
+          <div class="flex items-center justify-between pt-2">
+            <span>{{ appointment.treatment }}</span>
+            <span>
+              <span>{{ priceFormatter.format(appointment.price) }} so'm</span>
+            </span>
           </div>
           <div class="flex justify-end gap-2 mt-2">
             <div>
@@ -576,19 +600,32 @@ const resetForm = () => {
             placeholder="Ism va familiyani kiriting"
           />
         </a-form-item>
-        <a-form-item label="Davolash turi">
-          <a-select
-            v-model:value="formState.treatment"
-            :options="
-              treatmentOptions.map((item) => ({ label: item, value: item }))
-            "
-            placeholder="Davolash turini tanlang"
-            default-value="Konsultatsiya"
-            allow-clear
-            show-search
-          />
-        </a-form-item>
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+          <a-form-item label="Davolash turi">
+            <a-select
+              v-model:value="formState.treatment"
+              :options="
+                treatmentOptions.map((item) => ({ label: item, value: item }))
+              "
+              placeholder="Davolash turini tanlang"
+              default-value="Konsultatsiya"
+              allow-clear
+              show-search
+            />
+          </a-form-item>
+          <a-form-item label="Narxi (so'mda)">
+            <a-input-number
+              style="width: 100%"
+              v-model:value="formState.price"
+              placeholder="Narxni kiriting"
+              :controls="false"
+              :precision="0"
+              :min="0"
+              @keypress="onlyNumber"
+            />
+          </a-form-item>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
           <a-form-item label="Sana">
             <a-date-picker
               v-model:value="formState.date"

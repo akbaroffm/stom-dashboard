@@ -33,10 +33,10 @@ const router = createRouter({
       redirect: "/dashboard",
       children: [
         {
-          path: "",
-          name: "dashboard-dashboard",
+          path: "main",
+          name: "dashboard-main",
           meta: { title: "Asosiy", icon: "DashboardOutlined" },
-          component: () => import("@/views/dashboard/dashboard.view.vue"),
+          component: () => import("@/views/dashboard/main.view.vue"),
         },
         {
           path: "queues",

@@ -7,72 +7,100 @@ import {
   PhoneOutlined,
   CalendarOutlined,
   HomeOutlined,
+  ManOutlined,
+  WomanOutlined,
 } from "@ant-design/icons-vue";
-import { reactive, ref } from "vue";
+import { reactive, ref, onMounted } from "vue";
+import { useFetch } from "@/composable/useFetch";
+import { useLoading } from "@/stores/loading";
+import dayjs from "dayjs";
+import { formatDate } from "@/utils/format-number";
 
-const clients = ref([
-  {
-    id: 1,
-    fullName: "Og'abek Hamzakulov",
-    phone: "+998 90 123 45 67",
-    birthYear: "1995",
-    address: "Toshkent sh., Yunusobod t., 12-uy",
-  },
-  {
-    id: 2,
-    fullName: "Mirolim Akbarov",
-    phone: "+998 91 987 65 43",
-    birthYear: "1988",
-    address: "Samarqand sh., Registon ko'ch., 25-uy",
-  },
-]);
+const { $get, $post, $put, $delete } = useFetch();
 
+const clients = ref([]);
 const modalOpen = ref(false);
 const confirmLoading = ref(false);
 const editingClient = ref(null);
+const loadingStore = useLoading();
 
 const formState = reactive({
-  fullName: "",
-  phone: "",
-  birthYear: "",
+  firstName: "",
+  lastName: "",
+  phoneNumber: "",
+  birthDate: "",
   address: "",
+  genderId: null,
 });
+
+const genderOptions = [
+  { label: "Erkak", value: 1, icon: ManOutlined },
+  { label: "Ayol", value: 2, icon: WomanOutlined },
+];
 
 const columns = [
   {
-    title: "To'liq ism",
-    dataIndex: "fullName",
-    key: "fullName",
-    width: "25%",
+    title: "Ism",
+    dataIndex: "firstName",
+    key: "firstName",
+    width: 200,
+  },
+  {
+    title: "Familiya",
+    dataIndex: "lastName",
+    key: "lastName",
+    width: 200,
   },
   {
     title: "Telefon",
-    dataIndex: "phone",
-    key: "phone",
-    width: "20%",
+    dataIndex: "phoneNumber",
+    key: "phoneNumber",
+    width: 200,
   },
   {
-    title: "Tug'ilgan yili",
-    dataIndex: "birthYear",
-    key: "birthYear",
-    width: "15%",
+    title: "Tug'ilgan sana",
+    dataIndex: "birthDate",
+    key: "birthDate",
+    width: 200,
   },
   {
     title: "Manzili",
     dataIndex: "address",
     key: "address",
-    width: "25%",
+    width: 300,
   },
   {
     title: "Amallar",
     key: "actions",
-    width: "15%",
+    width: 200,
   },
 ];
 
-const deleteClient = (clientId) => {
-  clients.value = clients.value.filter((client) => client.id !== clientId);
-  message.success("Mijoz muvaffaqiyatli o'chirildi!");
+// Fetch clients
+const fetchPatients = async () => {
+  try {
+    loadingStore.startLoadingFn();
+    const response = await $get("Patient/GetAllUsers");
+    clients.value = response.content.filter((user) => user.roleId === 2);
+  } catch (error) {
+    message.error("Mijozlar ro'yxatini olishda xatolik yuz berdi!", 5);
+  } finally {
+    loadingStore.stopLoadingFn();
+  }
+};
+
+// Delete client
+const deleteClient = async (clientId) => {
+  try {
+    const response = await $delete(`Patient/RemoveUser?id=${clientId}`);
+
+    if (response?.code === 200) {
+      await fetchPatients();
+      message.success("Mijoz muvaffaqiyatli o'chirildi!");
+    }
+  } catch (error) {
+    message.error("Mijozni o'chirishda xatolik yuz berdi!", 5);
+  }
 };
 
 const showModal = () => {
@@ -81,21 +109,26 @@ const showModal = () => {
   modalOpen.value = true;
 };
 
+// Edit client
 const editClient = (client) => {
   editingClient.value = client;
-  formState.fullName = client.fullName;
-  formState.phone = client.phone;
-  formState.birthYear = client.birthYear;
+  formState.firstName = client.firstName;
+  formState.lastName = client.lastName;
+  formState.phoneNumber = client.phoneNumber;
+  formState.birthDate = client.birthDate ? dayjs(client.birthDate) : null;
   formState.address = client.address;
+  formState.genderId = client.genderId;
   modalOpen.value = true;
 };
 
-const handleOk = () => {
+const handleOk = async () => {
   if (
-    !formState.fullName ||
-    !formState.phone ||
-    !formState.birthYear ||
-    !formState.address
+    !formState.firstName ||
+    !formState.lastName ||
+    !formState.phoneNumber ||
+    !formState.birthDate ||
+    !formState.address ||
+    !formState.genderId
   ) {
     message.error("Iltimos, barcha maydonlarni to'ldiring!");
     return;
@@ -103,45 +136,105 @@ const handleOk = () => {
 
   confirmLoading.value = true;
 
-  setTimeout(() => {
+  try {
     if (editingClient.value) {
-      // Tahrirlash
-      const index = clients.value.findIndex(
-        (client) => client.id === editingClient.value.id
-      );
-      if (index !== -1) {
-        clients.value[index] = {
-          ...clients.value[index],
-          fullName: formState.fullName,
-          phone: formState.phone,
-          birthYear: formState.birthYear,
-          address: formState.address,
-        };
-        message.success("Mijoz ma'lumotlari muvaffaqiyatli yangilandi!");
+      const payload = {
+        id: editingClient.value.id,
+        firstName: formState.firstName,
+        lastName: formState.lastName,
+        phoneNumber: formState.phoneNumber.replace(/\D/g, ""),
+        birthDate: formState.birthDate
+          ? formState.birthDate.format("YYYY-MM-DD")
+          : null,
+        address: formState.address,
+        genderId: formState.genderId,
+        roleId: 2,
+      };
+
+      const response = await $put(`Patient/UpdateUser`, payload);
+      if (response) {
+        const index = clients.value.findIndex(
+          (client) => client.id === editingClient.value.id
+        );
+        if (index !== -1) {
+          clients.value[index] = {
+            ...payload,
+            birthDate: payload.birthDate.split("T")[0],
+          };
+          await fetchPatients();
+          message.success("Mijoz ma'lumotlari muvaffaqiyatli yangilandi!");
+        }
       }
     } else {
-      // Yangi qo'shish
-      const newClient = {
-        id: Math.max(...clients.value.map((item) => item.id)) + 1,
-        fullName: formState.fullName,
-        phone: formState.phone,
-        birthYear: formState.birthYear,
+      // Add new client
+      const payload = {
+        firstName: formState.firstName,
+        lastName: formState.lastName,
+        phoneNumber: formState.phoneNumber.replace(/\D/g, ""),
+        birthDate: formState.birthDate,
         address: formState.address,
+        genderId: formState.genderId,
+        roleId: 2,
       };
-      clients.value.push(newClient);
-      message.success("Yangi mijoz muvaffaqiyatli qo'shildi!");
+      const response = await $post("Patient/AddPatient", payload);
+      if (response) {
+        await fetchPatients();
+        message.success("Yangi mijoz muvaffaqiyatli qo'shildi!");
+      }
     }
-    confirmLoading.value = false;
     modalOpen.value = false;
-  }, 1000);
+  } catch (error) {
+    message.error(
+      error.response?.data?.message || "Operatsiyada xatolik yuz berdi!",
+      5
+    );
+  } finally {
+    confirmLoading.value = false;
+  }
 };
 
+// Reset form
 const resetForm = () => {
-  formState.fullName = "";
-  formState.phone = "";
-  formState.birthYear = "";
+  formState.firstName = "";
+  formState.lastName = "";
+  formState.phoneNumber = "+998";
+  formState.birthDate = null;
   formState.address = "";
+  formState.genderId = null;
 };
+
+// Format phone number
+const formatPhone = (e) => {
+  let value = e.target.value.replace(/\D/g, "");
+
+  if (!value.startsWith("998")) {
+    value = "998" + value;
+  }
+  value = value.substring(0, 12);
+
+  // formatlash: +998(93)515-48-84
+  let formatted = "+998";
+  if (value.length > 3) formatted += "(" + value.substring(3, 5);
+  if (value.length >= 5) formatted += ")";
+  if (value.length > 5) formatted += value.substring(5, 8);
+  if (value.length >= 8) formatted += "-";
+  if (value.length > 8) formatted += value.substring(8, 10);
+  if (value.length >= 10) formatted += "-";
+  if (value.length > 10) formatted += value.substring(10, 12);
+
+  formState.phoneNumber = formatted;
+};
+// Allow only numbers for phone input
+const onlyNumber = (e) => {
+  const charCode = e.charCode ? e.charCode : e.keyCode;
+  if (charCode < 48 || charCode > 57) {
+    e.preventDefault();
+  }
+};
+
+onMounted(async () => {
+  await fetchPatients();
+});
 </script>
 
 <template>
@@ -154,12 +247,11 @@ const resetForm = () => {
 
     <div class="bg-white rounded-lg border border-gray-200">
       <a-table
+        :loading="loadingStore.isLoading"
         :columns="columns"
         :data-source="clients"
         :pagination="{
-          current,
-          pageSize,
-          total,
+          pageSize: 10,
           showSizeChanger: true,
           pageSizeOptions: ['10', '20', '50', '100'],
         }"
@@ -167,26 +259,30 @@ const resetForm = () => {
         row-key="id"
       >
         <template #bodyCell="{ column, record }">
-          <template v-if="column.key === 'fullName'">
+          <template v-if="column.key === 'firstName'">
             <div class="flex items-center gap-3">
               <a-avatar size="small" class="bg-blue-500">
                 <template #icon><UserOutlined /></template>
               </a-avatar>
-              <span class="font-medium">{{ record.fullName }}</span>
+              <span class="font-medium">{{ record.firstName }}</span>
             </div>
           </template>
 
-          <template v-else-if="column.key === 'phone'">
+          <template v-else-if="column.key === 'lastName'">
+            <span>{{ record.lastName }}</span>
+          </template>
+
+          <template v-else-if="column.key === 'phoneNumber'">
             <div class="flex items-center gap-2">
               <PhoneOutlined class="text-green-600" />
-              <span>{{ record.phone }}</span>
+              <span>{{ record.phoneNumber }}</span>
             </div>
           </template>
 
-          <template v-else-if="column.key === 'birthYear'">
+          <template v-else-if="column.key === 'birthDate'">
             <div class="flex items-center gap-2">
               <CalendarOutlined class="text-blue-600" />
-              <span>{{ record.birthYear }}</span>
+              <span>{{ formatDate(record.birthDate) }}</span>
             </div>
           </template>
 
@@ -255,35 +351,71 @@ const resetForm = () => {
       </template>
 
       <a-form layout="vertical">
-        <a-form-item label="To'liq ism" required>
-          <a-input
-            v-model:value="formState.fullName"
-            placeholder="Ism va familiyani kiriting"
-          >
-            <template #prefix>
-              <UserOutlined class="!text-gray-400 mr-1" />
-            </template>
-          </a-input>
-        </a-form-item>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+          <a-form-item label="Ism" required>
+            <a-input
+              v-model:value="formState.firstName"
+              placeholder="Ismni kiriting"
+            >
+              <template #prefix>
+                <UserOutlined class="!text-gray-400 mr-1" />
+              </template>
+            </a-input>
+          </a-form-item>
 
-        <a-form-item label="Telefon raqami" required>
-          <a-input
-            v-model:value="formState.phone"
-            placeholder="+998 90 123 45 67"
-            maxlength="13"
-          >
-            <template #prefix>
-              <PhoneOutlined class="!text-gray-400 mr-1" />
-            </template>
-          </a-input>
-        </a-form-item>
+          <a-form-item label="Familiya" required>
+            <a-input
+              v-model:value="formState.lastName"
+              placeholder="Familiyani kiriting"
+            >
+              <template #prefix>
+                <UserOutlined class="!text-gray-400 mr-1" />
+              </template>
+            </a-input>
+          </a-form-item>
+        </div>
 
-        <a-form-item label="Tug'ilgan yili" required>
-          <a-input v-model:value="formState.birthYear" placeholder="1990">
-            <template #prefix>
-              <CalendarOutlined class="!text-gray-400 mr-1" />
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+          <a-form-item label="Telefon raqami" required>
+            <a-input
+              v-model:value="formState.phoneNumber"
+              placeholder="+998(__)___-__-__"
+              @input="formatPhone"
+              maxlength="17"
+              @keypress="onlyNumber"
+            >
+              <template #prefix>
+                <PhoneOutlined class="!text-gray-400 mr-1" />
+              </template>
+            </a-input>
+          </a-form-item>
+
+          <a-form-item label="Tug'ilgan sana" required>
+            <a-date-picker
+              v-model:value="formState.birthDate"
+              style="width: 100%"
+            >
+              <template #prefix>
+                <CalendarOutlined class="!text-gray-400 mr-1" />
+              </template>
+            </a-date-picker>
+          </a-form-item>
+        </div>
+
+        <a-form-item label="Jins" required>
+          <a-select
+            v-model:value="formState.genderId"
+            placeholder="Jinsni tanlang"
+            :options="genderOptions"
+            show-search
+          >
+            <template #option="{ value, label, icon }">
+              <span class="flex items-center">
+                <component :is="icon" class="mr-2" />
+                {{ label }}
+              </span>
             </template>
-          </a-input>
+          </a-select>
         </a-form-item>
 
         <a-form-item label="Manzili" required>
