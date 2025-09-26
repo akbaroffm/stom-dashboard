@@ -7,16 +7,16 @@ import {
   CalendarOutlined,
   ClockCircleOutlined,
 } from "@ant-design/icons-vue";
-import { reactive, ref, onMounted, onUnmounted } from "vue";
+import { reactive, ref, onMounted, onUnmounted, computed } from "vue";
 import dayjs from "dayjs";
 import { useFetch } from "@/composable/useFetch";
+
+const { $get, $post, $put, $delete } = useFetch();
 
 const formatDateUz = (dateStr) => {
   if (!dateStr) return "";
 
-  const [year, month, day] = dateStr.split("-");
-  const date = new Date(Number(year), Number(month) - 1, Number(day));
-
+  const date = new Date(dateStr);
   const months = [
     "yanvar",
     "fevral",
@@ -39,8 +39,8 @@ const formatDateUz = (dateStr) => {
 
 const sortedAppointments = (list = []) => {
   return [...list].sort((a, b) => {
-    const dateA = new Date(`${a.date}T${a.time}`);
-    const dateB = new Date(`${b.date}T${b.time}`);
+    const dateA = new Date(a.visitDate);
+    const dateB = new Date(b.visitDate);
     return dateA - dateB;
   });
 };
@@ -49,28 +49,12 @@ const disabledDate = (current) => {
   return current && current < new Date().setHours(0, 0, 0, 0);
 };
 
-const appointments = ref({
-  waiting: [
-    {
-      id: 1,
-      patientName: "Og'abek Hamzakulov",
-      treatment: "Konsultatsiya",
-      date: "2025-09-08",
-      price: 100000,
-      time: "14:00",
-    },
-    {
-      id: 2,
-      patientName: "Mirolim Akbarov",
-      treatment: "Plomba qo'yish",
-      date: "2025-09-08",
-      price: 300000,
-      time: "15:00",
-    },
-  ],
-  completed: [],
-  cancelled: [],
-});
+// Data
+const visits = ref([]);
+const patients = ref([]);
+const treatmentTypes = ref([]);
+const paymentTypes = ref([]);
+const visitStatuses = ref([]);
 
 const draggedItem = ref(null);
 const draggedFrom = ref(null);
@@ -78,48 +62,143 @@ const isMobile = ref(false);
 
 const modalOpen = ref(false);
 const confirmLoading = ref(false);
-const editingAppointment = ref(null);
+const editingVisit = ref(null);
+const loading = ref(false);
+
+// Payment confirmation modal
+const paymentModalOpen = ref(false);
+const pendingStatusUpdate = ref(null);
 
 const formState = reactive({
-  patientName: "",
-  treatment: "Konsultatsiya",
-  date: null,
-  time: null,
-  price: null,
+  patientId: null,
+  visitDate: null,
+  complaint: "",
+  diagnosis: "",
+  notes: "",
+  invoiceAmount: null,
+  paymentTypeId: null,
+  statusId: 1, // Default to Awaiting
+  treatmentTypeId: null,
+  treatmentDescription: "",
+  isPaid: false,
 });
 
-const treatmentOptions = [
-  "Konsultatsiya",
-  "Plomba qo'yish",
-  "Xirurgiya",
-  "Davolash",
-  "Tish tozalash",
-  "Implant qo'yish",
-  "Breket qo'yish",
-];
+// Computed properties for categorizing visits by status
+const appointments = computed(() => {
+  const waiting = visits.value.filter((visit) => visit.statusId === 1);
+  const completed = visits.value.filter((visit) => visit.statusId === 2);
+  const cancelled = visits.value.filter((visit) => visit.statusId === 3);
 
-// Detect if device is mobile (tablet or phone)
+  return { waiting, completed, cancelled };
+});
+
+// Mobile detection
 const checkIsMobile = () => {
   const touchAvailable =
     "ontouchstart" in window || navigator.maxTouchPoints > 0;
-  const isSmallScreen = window.innerWidth < 1024; // lg breakpoint
+  const isSmallScreen = window.innerWidth < 1024;
   isMobile.value = touchAvailable || isSmallScreen;
 };
 
-// Update isMobile on window resize
 const handleResize = () => {
   checkIsMobile();
 };
 
-onMounted(() => {
+onMounted(async () => {
   checkIsMobile();
   window.addEventListener("resize", handleResize);
+  await Promise.all([
+    loadVisits(),
+    loadPatients(),
+    loadTreatmentTypes(),
+    loadPaymentTypes(),
+    loadVisitStatuses(),
+  ]);
 });
 
 onUnmounted(() => {
   window.removeEventListener("resize", handleResize);
 });
 
+// API calls
+const loadVisits = async () => {
+  try {
+    loading.value = true;
+    const response = await $get("Visit/GetAll");
+    visits.value = response || [];
+  } catch (error) {
+    message.error("Qabullarni yuklashda xatolik yuz berdi!");
+    console.error("Error loading visits:", error);
+  } finally {
+    loading.value = false;
+  }
+};
+
+const loadPatients = async () => {
+  try {
+    const response = await $get("Patient/GetAllUsers?CanGetMyPatients=true");
+    patients.value = (response.content || []).filter(
+      (user) => user.roleId === 2
+    );
+  } catch (error) {
+    console.error("Error loading patients:", error);
+  }
+};
+
+const loadTreatmentTypes = async () => {
+  try {
+    const response = await $get("TreatmentType/GetAll");
+    treatmentTypes.value = response || [];
+  } catch (error) {
+    message.error("Davolash turlarini yuklashda xatolik yuz berdi!");
+    console.error("Error loading treatment types:", error);
+  }
+};
+
+const loadPaymentTypes = async () => {
+  try {
+    const response = await $get("PaymentType/GetAll");
+    paymentTypes.value = response || [];
+  } catch (error) {
+    message.error("To'lov turlarini yuklashda xatolik yuz berdi!");
+    console.error("Error loading payment types:", error);
+  }
+};
+
+const loadVisitStatuses = async () => {
+  try {
+    const response = await $get("VisitStatus/GetAll");
+    visitStatuses.value = response || [];
+  } catch (error) {
+    message.error("Status turlarini yuklashda xatolik yuz berdi!");
+    console.error("Error loading visit statuses:", error);
+  }
+};
+
+// Payment confirmation functions
+const showPaymentConfirmation = (visitId, newStatusId) => {
+  const visit = visits.value.find((v) => v.id === visitId);
+  pendingStatusUpdate.value = {
+    visitId,
+    newStatusId,
+    currentAmount: visit?.invoice?.amount || visit?.invoiceAmount || 0,
+  };
+  paymentModalOpen.value = true;
+};
+
+const handlePaymentConfirmation = async (isPaid) => {
+  if (pendingStatusUpdate.value) {
+    await updateVisitStatus(
+      pendingStatusUpdate.value.visitId,
+      pendingStatusUpdate.value.newStatusId,
+      isPaid
+    );
+    paymentModalOpen.value = false;
+    pendingStatusUpdate.value = null;
+  }
+};
+
+// Drag and drop functionality
 const onDragStart = (item, from) => {
   if (!isMobile.value) {
     draggedItem.value = item;
@@ -133,93 +212,152 @@ const onDragOver = (event) => {
   }
 };
 
-const onDrop = (to) => {
+const onDrop = async (to) => {
   if (!isMobile.value && draggedItem.value && draggedFrom.value !== to) {
-    appointments.value[draggedFrom.value] = appointments.value[
-      draggedFrom.value
-    ].filter((item) => item.id !== draggedItem.value.id);
-    appointments.value[to].push(draggedItem.value);
-  }
-};
+    const statusMap = { waiting: 1, completed: 2, cancelled: 3 };
+    const newStatusId = statusMap[to];
 
-const moveAppointment = (appointmentId, fromStatus, toStatus) => {
-  if (fromStatus !== toStatus) {
-    const appointment = appointments.value[fromStatus].find(
-      (app) => app.id === appointmentId
-    );
-    if (appointment) {
-      appointments.value[fromStatus] = appointments.value[fromStatus].filter(
-        (app) => app.id !== appointmentId
-      );
-      appointments.value[toStatus].push(appointment);
+    if (newStatusId === 2) {
+      // If moving to completed status, show payment confirmation
+      showPaymentConfirmation(draggedItem.value.id, newStatusId);
+    } else {
+      await updateVisitStatus(draggedItem.value.id, newStatusId);
     }
   }
 };
 
-const deleteAppointment = (appointmentId, status) => {
-  appointments.value[status] = appointments.value[status].filter(
-    (app) => app.id !== appointmentId
-  );
-  message.success("Qabul muvaffaqiyatli o'chirildi!");
+const moveAppointment = async (visitId, fromStatus, toStatus) => {
+  const statusMap = { waiting: 1, completed: 2, cancelled: 3 };
+  const newStatusId = statusMap[toStatus];
+
+  if (newStatusId === 2) {
+    // If moving to completed status, show payment confirmation
+    showPaymentConfirmation(visitId, newStatusId);
+  } else {
+    await updateVisitStatus(visitId, newStatusId);
+  }
 };
 
+const updateVisitStatus = async (visitId, newStatusId, isPaid = false) => {
+  try {
+    const visit = visits.value.find((v) => v.id === visitId);
+    if (!visit) return;
+
+    // Get the invoice amount - prioritize invoice.amount, fallback to invoiceAmount
+    const invoiceAmount = visit.invoice?.amount || visit.invoiceAmount || 0;
+
+    const updatePayload = {
+      patientId: visit.patient.id,
+      visitDate: visit.visitDate,
+      complaint: visit.complaint || "",
+      diagnosis: visit.diagnosis || "",
+      notes: visit.notes || "",
+      invoiceAmount: invoiceAmount, // Always send the invoice amount
+      paymentTypeId: visit.paymentTypeId || visit.invoice?.paymentTypeId || 1,
+      statusId: newStatusId,
+      treatmentTypeId: visit?.treatmentTypeId || 1,
+      treatmentDescription: visit?.treatmentDescription || "",
+      visitId: visitId,
+      isPaid:
+        newStatusId === 2
+          ? isPaid
+          : visit.isPaid || visit.invoice?.isPaid || false,
+    };
+
+    console.log("Sending update payload:", updatePayload); // Debug log
+
+    await $put("Visit/UpdateVisit", updatePayload);
+    await loadVisits();
+    message.success("Status muvaffaqiyatli yangilandi!");
+  } catch (error) {
+    message.error("Statusni yangilashda xatolik yuz berdi!");
+    console.error("Error updating visit status:", error);
+  }
+};
+const deleteVisit = async (visitId) => {
+  try {
+    await $delete(`Visit/DeleteVisit/${visitId}`);
+    await loadVisits();
+    message.success("Qabul muvaffaqiyatli o'chirildi!");
+  } catch (error) {
+    message.error("Qabulni o'chirishda xatolik yuz berdi!");
+    console.error("Error deleting visit:", error);
+  }
+};
+
+// Modal functions
 const showModal = () => {
   resetForm();
-  editingAppointment.value = null;
+  editingVisit.value = null;
   modalOpen.value = true;
 };
 
-const editAppointment = (appointment) => {
-  editingAppointment.value = appointment;
-  formState.patientName = appointment.patientName;
-  formState.treatment = appointment.treatment;
-  formState.date = dayjs(appointment.date);
-  formState.time = dayjs(appointment.time, "HH:mm");
-  formState.price = appointment.price;
+const editAppointment = (visit) => {
+  editingVisit.value = visit;
+  formState.patientId = visit.patient.id;
+  formState.visitDate = dayjs(visit.visitDate);
+  formState.complaint = visit.complaint || "";
+  formState.diagnosis = visit.diagnosis || "";
+  formState.notes = visit.notes || "";
+  formState.invoiceAmount = visit.invoice?.amount || 0;
+  formState.paymentTypeId = visit.invoice.paymentType;
+  formState.statusId = visit.statusId;
+  formState.treatmentTypeId = visit?.treatmentTypeId;
+  formState.treatmentDescription = visit?.treatmentDescription || "";
+  formState.isPaid = visit.isPaid || false;
   modalOpen.value = true;
 };
 
-const handleOk = () => {
-  confirmLoading.value = true;
-  const formattedDate = dayjs(formState.date).format("YYYY-MM-DD");
-  const formattedTime = dayjs(formState.time).format("HH:mm");
+const handleOk = async () => {
+  try {
+    confirmLoading.value = true;
 
-  setTimeout(() => {
-    if (editingAppointment.value) {
-      const index = appointments.value.waiting.findIndex(
-        (app) => app.id === editingAppointment.value.id
-      );
-      if (index !== -1) {
-        appointments.value.waiting[index] = {
-          ...appointments.value.waiting[index],
-          patientName: formState.patientName,
-          treatment: formState.treatment,
-          date: formattedDate,
-          time: formattedTime,
-          price: formState.price,
-        };
-        message.success("Qabul muvaffaqiyatli yangilandi!");
-      }
-    } else {
-      const newAppointment = {
-        id:
-          Math.max(
-            ...Object.values(appointments.value)
-              .flat()
-              .map((item) => item.id)
-          ) + 1,
-        patientName: formState.patientName,
-        treatment: formState.treatment,
-        date: formattedDate,
-        time: formattedTime,
-        price: formState.price,
+    if (editingVisit.value) {
+      // Update existing visit
+      const updatePayload = {
+        patientId: formState.patientId,
+        visitDate: formState.visitDate.toISOString(),
+        complaint: formState.complaint,
+        diagnosis: formState.diagnosis,
+        notes: formState.notes,
+        invoiceAmount: formState.invoiceAmount,
+        paymentTypeId: formState.paymentTypeId,
+        statusId: formState.statusId,
+        treatmentTypeId: formState.treatmentTypeId,
+        treatmentDescription: formState.treatmentDescription,
+        visitId: editingVisit.value.id,
+        isPaid: formState.isPaid,
       };
-      appointments.value.waiting.push(newAppointment);
+
+      await $put("Visit/UpdateVisit", updatePayload);
+      message.success("Qabul muvaffaqiyatli yangilandi!");
+    } else {
+      // Create new visit
+      const createPayload = {
+        patientId: formState.patientId,
+        visitDate: formState.visitDate.toISOString(),
+        complaint: formState.complaint,
+        diagnosis: formState.diagnosis,
+        notes: formState.notes,
+        invoiceAmount: formState.invoiceAmount,
+        paymentTypeId: formState.paymentTypeId,
+        statusId: formState.statusId,
+        treatmentTypeId: formState.treatmentTypeId,
+        treatmentDescription: formState.treatmentDescription,
+      };
+
+      await $post("Visit/AddVisit", createPayload);
       message.success("Qabul muvaffaqiyatli qo'shildi!");
     }
-    confirmLoading.value = false;
+
+    await loadVisits();
     modalOpen.value = false;
-  }, 2000);
+  } catch (error) {
+    message.error("Xatolik yuz berdi!");
+    console.error("Error saving visit:", error);
+  } finally {
+    confirmLoading.value = false;
+  }
 };
 
 const priceFormatter = new Intl.NumberFormat("uz-UZ", {
@@ -229,417 +367,574 @@ const priceFormatter = new Intl.NumberFormat("uz-UZ", {
 
 const onlyNumber = (event) => {
   const charCode = event.charCode;
-  // Faqat 0–9 ga ruxsat
   if (charCode < 48 || charCode > 57) {
     event.preventDefault();
   }
 };
 
 const resetForm = () => {
-  formState.patientName = "";
-  formState.treatment = "Konsultatsiya";
-  formState.date = null;
-  formState.time = null;
-  formState.price = null;
+  formState.patientId = null;
+  formState.visitDate = null;
+  formState.complaint = "";
+  formState.diagnosis = "";
+  formState.notes = "";
+  formState.invoiceAmount = null;
+  formState.paymentTypeId = null;
+  formState.statusId = 1;
+  formState.treatmentTypeId = null;
+  formState.treatmentDescription = "";
+  formState.isPaid = false;
+};
+
+// Helper function to get patient name
+const getPatientName = (visit) => {
+  if (visit.patient) {
+    return `${visit.patient.firstName} ${visit.patient.lastName}`;
+  }
+  return "Unknown Patient";
+};
+
+// Helper function to get treatment name
+const getTreatmentName = (visit) => {
+  return visit.treatmentType.uz || "No treatment specified";
 };
 </script>
 
 <template>
   <div class="pb-4">
     <div class="flex justify-end mb-2">
-      <a-button @click="showModal" type="primary" size="middle">{{
-        "+ Qabul qo'shish"
-      }}</a-button>
+      <a-button @click="showModal" type="primary" size="middle">
+        + Qabul qo'shish
+      </a-button>
     </div>
 
-    <div
-      class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 xl:gap-6 gap-4 h-[300px]"
+    <a-spin :spinning="loading">
+      <div
+        class="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 xl:gap-6 gap-4 h-[300px]"
+      >
+        <!-- Kutilmoqda -->
+        <div
+          class="bg-[#F3F4F6] rounded-lg p-4"
+          :class="{ 'drag-target': !isMobile }"
+          @dragover="onDragOver"
+          @drop="() => onDrop('waiting')"
+        >
+          <span
+            class="font-semibold flex justify-between items-center mb-4 text-[17px] text-[#374151]"
+          >
+            Kutilmoqda
+            <span
+              class="rounded-full px-2 py-1 text-[12px] font-semibold bg-[#EAB308] text-[#fff]"
+            >
+              {{ appointments.waiting.length }}
+            </span>
+          </span>
+          <div>
+            <div
+              v-if="appointments.waiting.length > 0"
+              v-for="visit in sortedAppointments(appointments.waiting)"
+              :key="visit.id"
+              :draggable="!isMobile"
+              @dragstart="onDragStart(visit, 'waiting')"
+              class="mb-3 cursor-grab shadow-xs hover:shadow-sm transition-shadow duration-200 bg-white rounded-lg p-4 border-l-4 border-[#EAB308]"
+            >
+              <div class="flex flex-wrap gap-2 justify-between mb-2">
+                <div class="flex items-center gap-2">
+                  <a-avatar size="small" class="bg-blue-500">
+                    <template #icon><UserOutlined /></template>
+                  </a-avatar>
+                  <span class="2xl:text-base text-md font-semibold">
+                    {{ getPatientName(visit) }}
+                  </span>
+                </div>
+                <div
+                  class="flex items-center gap-2 2xl:text-xs font-medium text-gray-600 bg-gray-100 px-3 py-1 rounded-md"
+                >
+                  <div class="flex items-center gap-2">
+                    <CalendarOutlined class="text-gray-500 mb-0.5" />
+                    {{ formatDateUz(visit.visitDate) }}
+                  </div>
+                  <div class="flex items-center gap-1">
+                    <ClockCircleOutlined class="text-gray-500 mb-0.5" />
+                    {{ dayjs(visit.visitDate).format("HH:mm") }}
+                  </div>
+                </div>
+              </div>
+              <div class="flex flex-col gap-y-2">
+                <div class="flex items-center justify-between pt-2">
+                  <span class="font-medium"
+                    >Davolash:
+                    <span class="font-[400]">
+                      {{ getTreatmentName(visit) }}
+                    </span></span
+                  >
+                  <span
+                    class="py-0.5 px-2 rounded-md"
+                    :class="{
+                      'bg-[#10B981] text-[#fff]': visit.invoice?.isPaid,
+                      'bg-[#EF4444] text-[#fff]': !visit.invoice?.isPaid,
+                    }"
+                  >
+                    {{ priceFormatter.format(visit.invoice?.amount || 0) }} so'm
+                  </span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="font-medium"
+                    >Mijoz shikoyati:
+                    <span class="font-[400]">
+                      {{ visit.complaint }}
+                    </span></span
+                  >
+                </div>
+              </div>
+              <div
+                class="flex gap-2"
+                :class="{
+                  'justify-between mt-6': isMobile,
+                  'justify-end mt-2': !isMobile,
+                }"
+              >
+                <div>
+                  <a-popconfirm
+                    title="Rostdan o'chirmoqchimisiz?"
+                    ok-text="Ha"
+                    cancel-text="Yo'q"
+                    @confirm="deleteVisit(visit.id)"
+                  >
+                    <a-button size="small" type="text" danger>
+                      <template #icon><DeleteOutlined /></template>
+                    </a-button>
+                  </a-popconfirm>
+                  <a-button
+                    size="small"
+                    type="text"
+                    @click="editAppointment(visit)"
+                  >
+                    <template #icon><EditOutlined /></template>
+                  </a-button>
+                </div>
+                <div v-if="isMobile" class="flex gap-2">
+                  <a-button
+                    size="small"
+                    type="primary"
+                    class="!bg-[#10B981] !shadow-none"
+                    @click="moveAppointment(visit.id, 'waiting', 'completed')"
+                  >
+                    Bajarildi
+                  </a-button>
+                  <a-button
+                    size="small"
+                    type="primary"
+                    class="!bg-[#EF4444] !shadow-none"
+                    @click="moveAppointment(visit.id, 'waiting', 'cancelled')"
+                  >
+                    Bekor qilindi
+                  </a-button>
+                </div>
+              </div>
+            </div>
+            <div
+              v-else
+              class="border-2 border-dashed h-[115px] border-gray-300 rounded-lg flex flex-col justify-center items-center text-gray-500"
+            >
+              Hozirda bemorlar yo'q
+            </div>
+          </div>
+        </div>
+
+        <!-- Bajarildi -->
+        <div
+          class="bg-[#F3F4F6] rounded-lg p-4"
+          :class="{ 'drag-target': !isMobile }"
+          @dragover="onDragOver"
+          @drop="() => onDrop('completed')"
+        >
+          <span
+            class="font-semibold flex justify-between items-center mb-4 text-[17px] text-[#374151]"
+          >
+            Bajarildi
+            <span
+              class="rounded-full px-2 py-1 text-[12px] font-semibold bg-[#10B981] text-[#fff]"
+            >
+              {{ appointments.completed.length }}
+            </span>
+          </span>
+          <div>
+            <div
+              v-if="appointments.completed.length > 0"
+              v-for="visit in sortedAppointments(appointments.completed)"
+              :key="visit.id"
+              :draggable="!isMobile"
+              @dragstart="onDragStart(visit, 'completed')"
+              class="mb-3 cursor-grab shadow-xs hover:shadow-sm transition-shadow duration-200 bg-white rounded-lg p-4 border-l-4 border-[#10B981]"
+            >
+              <div class="flex flex-wrap gap-2 justify-between mb-2">
+                <div class="flex items-center gap-2">
+                  <a-avatar size="small" class="bg-blue-500">
+                    <template #icon><UserOutlined /></template>
+                  </a-avatar>
+                  <span class="2xl:text-base text-md font-semibold">
+                    {{ getPatientName(visit) }}
+                  </span>
+                </div>
+                <div
+                  class="flex items-center gap-2 2xl:text-xs font-medium text-gray-600 bg-gray-100 px-3 py-1 rounded-md"
+                >
+                  <div class="flex items-center gap-2">
+                    <CalendarOutlined class="text-gray-500 mb-0.5" />
+                    {{ formatDateUz(visit.visitDate) }}
+                  </div>
+                  <div class="flex items-center gap-1">
+                    <ClockCircleOutlined class="text-gray-500 mb-0.5" />
+                    {{ dayjs(visit.visitDate).format("HH:mm") }}
+                  </div>
+                </div>
+              </div>
+              <div class="flex flex-col gap-y-2">
+                <div class="flex items-center justify-between pt-2">
+                  <span class="font-medium"
+                    >Davolash:
+                    <span class="font-[400]">
+                      {{ getTreatmentName(visit) }}
+                    </span></span
+                  >
+                  <span
+                    class="py-0.5 px-2 rounded-md"
+                    :class="{
+                      'bg-[#10B981] text-[#fff]': visit.invoice?.isPaid,
+                      'bg-[#EF4444] text-[#fff]': !visit.invoice?.isPaid,
+                    }"
+                  >
+                    {{ priceFormatter.format(visit.invoice?.amount || 0) }} so'm
+                  </span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="font-medium"
+                    >Mijoz shikoyati:
+                    <span class="font-[400]">
+                      {{ visit.complaint }}
+                    </span></span
+                  >
+                </div>
+              </div>
+              <div
+                class="flex gap-2"
+                :class="{
+                  'justify-between mt-6': isMobile,
+                  'justify-end mt-2': !isMobile,
+                }"
+              >
+                <div>
+                  <a-popconfirm
+                    title="Rostdan o'chirmoqchimisiz?"
+                    ok-text="Ha"
+                    cancel-text="Yo'q"
+                    @confirm="deleteVisit(visit.id)"
+                  >
+                    <a-button size="small" type="text" danger>
+                      <template #icon><DeleteOutlined /></template>
+                    </a-button>
+                  </a-popconfirm>
+                  <a-button
+                    size="small"
+                    type="text"
+                    @click="editAppointment(visit)"
+                  >
+                    <template #icon><EditOutlined /></template>
+                  </a-button>
+                </div>
+                <div v-if="isMobile" class="flex gap-2">
+                  <a-button
+                    size="small"
+                    type="primary"
+                    class="!bg-[#EAB308] !shadow-none"
+                    @click="moveAppointment(visit.id, 'completed', 'waiting')"
+                  >
+                    Kutilmoqda
+                  </a-button>
+                  <a-button
+                    size="small"
+                    type="primary"
+                    class="!bg-[#EF4444] !shadow-none"
+                    @click="moveAppointment(visit.id, 'completed', 'cancelled')"
+                  >
+                    Bekor qilindi
+                  </a-button>
+                </div>
+              </div>
+            </div>
+            <div
+              v-else
+              class="border-2 border-dashed h-[115px] border-gray-300 rounded-lg flex flex-col justify-center items-center text-gray-500"
+            >
+              Hozirda bemorlar yo'q
+            </div>
+          </div>
+        </div>
+
+        <!-- Bekor qilindi -->
+        <div
+          class="bg-[#F3F4F6] rounded-lg p-4"
+          :class="{ 'drag-target': !isMobile }"
+          @dragover="onDragOver"
+          @drop="() => onDrop('cancelled')"
+        >
+          <span
+            class="font-semibold flex justify-between items-center mb-4 text-[17px] text-[#374151]"
+          >
+            Bekor qilindi
+            <span
+              class="rounded-full px-2 py-1 text-[12px] font-semibold bg-[#EF4444] text-[#fff]"
+            >
+              {{ appointments.cancelled.length }}
+            </span>
+          </span>
+          <div>
+            <div
+              v-if="appointments.cancelled.length > 0"
+              v-for="visit in sortedAppointments(appointments.cancelled)"
+              :key="visit.id"
+              :draggable="!isMobile"
+              @dragstart="onDragStart(visit, 'cancelled')"
+              class="mb-3 cursor-grab shadow-xs hover:shadow-sm transition-shadow duration-200 bg-white rounded-lg p-4 border-l-4 border-[#EF4444]"
+            >
+              <div class="flex flex-wrap gap-2 justify-between mb-2">
+                <div class="flex items-center gap-2">
+                  <a-avatar size="small" class="bg-blue-500">
+                    <template #icon><UserOutlined /></template>
+                  </a-avatar>
+                  <span class="2xl:text-base text-md font-semibold">
+                    {{ getPatientName(visit) }}
+                  </span>
+                </div>
+                <div
+                  class="flex items-center gap-2 2xl:text-xs font-medium text-gray-600 bg-gray-100 px-3 py-1 rounded-md"
+                >
+                  <div class="flex items-center gap-2">
+                    <CalendarOutlined class="text-gray-500 mb-0.5" />
+                    {{ formatDateUz(visit.visitDate) }}
+                  </div>
+                  <div class="flex items-center gap-1">
+                    <ClockCircleOutlined class="text-gray-500 mb-0.5" />
+                    {{ dayjs(visit.visitDate).format("HH:mm") }}
+                  </div>
+                </div>
+              </div>
+              <div class="flex flex-col gap-y-2">
+                <div class="flex items-center justify-between pt-2">
+                  <span class="font-medium"
+                    >Davolash:
+                    <span class="font-[400]">
+                      {{ getTreatmentName(visit) }}
+                    </span></span
+                  >
+                  <span
+                    class="py-0.5 px-2 rounded-md"
+                    :class="{
+                      'bg-[#10B981] text-[#fff]': visit.invoice?.isPaid,
+                      'bg-[#EF4444] text-[#fff]': !visit.invoice?.isPaid,
+                    }"
+                  >
+                    {{ priceFormatter.format(visit.invoice?.amount || 0) }} so'm
+                  </span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="font-medium"
+                    >Mijoz shikoyati:
+                    <span class="font-[400]">
+                      {{ visit.complaint }}
+                    </span></span
+                  >
+                </div>
+              </div>
+              <div class="flex justify-end gap-2 mt-4">
+                <div>
+                  <a-popconfirm
+                    title="Rostdan o'chirmoqchimisiz?"
+                    ok-text="Ha"
+                    cancel-text="Yo'q"
+                    @confirm="deleteVisit(visit.id)"
+                  >
+                    <a-button size="small" type="text" danger>
+                      <template #icon><DeleteOutlined /></template>
+                    </a-button>
+                  </a-popconfirm>
+                  <a-button
+                    size="small"
+                    type="text"
+                    @click="editAppointment(visit)"
+                  >
+                    <template #icon><EditOutlined /></template>
+                  </a-button>
+                </div>
+              </div>
+            </div>
+            <div
+              v-else
+              class="border-2 border-dashed h-[115px] border-gray-300 rounded-lg flex flex-col justify-center items-center text-gray-500"
+            >
+              Hozirda bemorlar yo'q
+            </div>
+          </div>
+        </div>
+      </div>
+    </a-spin>
+
+    <!-- Payment Confirmation Modal -->
+    <a-modal
+      v-model:open="paymentModalOpen"
+      :width="400"
+      @cancel="paymentModalOpen = false"
     >
-      <!-- Kutilmoqda -->
-      <div
-        class="bg-[#F3F4F6] rounded-lg p-4"
-        :class="{ 'drag-target': !isMobile }"
-        @dragover="onDragOver"
-        @drop="() => onDrop('waiting')"
-      >
-        <span
-          class="font-semibold flex justify-between items-center mb-4 text-[17px] text-[#374151]"
-        >
-          Kutilmoqda
-          <span
-            class="rounded-full px-2 py-1 text-[12px] font-semibold bg-[#EAB308] text-[#fff]"
-            >{{ appointments.waiting.length }}</span
+      <div class="text-center">
+        <p class="text-lg !mb-4">Mijoz to'lovni amalga oshirdimi?</p>
+        <div class="flex justify-center gap-4">
+          <a-button
+            type="primary"
+            class="!bg-[#10B981]"
+            @click="handlePaymentConfirmation(true)"
           >
-        </span>
-        <div
-          v-if="appointments.waiting.length > 0"
-          v-for="appointment in sortedAppointments(appointments.waiting)"
-          :key="appointment.id"
-          :draggable="!isMobile"
-          @dragstart="onDragStart(appointment, 'waiting')"
-          class="mb-3 cursor-grab shadow-xs hover:shadow-sm transition-shadow duration-200 bg-white rounded-lg p-4 border-l-4 border-[#EAB308]"
-        >
-          <div class="flex flex-wrap gap-2 justify-between mb-2">
-            <div class="flex items-center gap-2">
-              <a-avatar size="small" class="bg-blue-500">
-                <template #icon><UserOutlined /></template>
-              </a-avatar>
-              <span class="2xl:text-base text-md font-semibold">{{
-                appointment.patientName
-              }}</span>
-            </div>
-            <div
-              class="flex items-center gap-2 2xl:text-xs font-medium text-gray-600 bg-gray-100 px-3 py-1 rounded-md"
-            >
-              <div class="flex items-center gap-2">
-                <CalendarOutlined class="text-gray-500 mb-0.5" />
-                {{ formatDateUz(appointment.date) }}
-              </div>
-              <div class="flex items-center gap-1">
-                <ClockCircleOutlined class="text-gray-500 mb-0.5" />
-                {{ appointment.time }}
-              </div>
-            </div>
-          </div>
-          <div class="flex items-center justify-between pt-2">
-            <span>{{ appointment.treatment }}</span>
-            <span>
-              <span>{{ priceFormatter.format(appointment.price) }} so'm</span>
-            </span>
-          </div>
-          <div
-            class="flex gap-2"
-            :class="{
-              'justify-between mt-4': isMobile,
-              'justify-end mt-2': !isMobile,
-            }"
-          >
-            <div>
-              <a-popconfirm
-                title="Rostdan o'chirmoqchimisiz?"
-                ok-text="Ha"
-                cancel-text="Yo‘q"
-                @confirm="deleteAppointment(appointment.id, 'waiting')"
-              >
-                <a-button size="small" type="text" danger>
-                  <template #icon><DeleteOutlined /></template>
-                </a-button>
-              </a-popconfirm>
-              <a-button
-                size="small"
-                type="text"
-                @click="editAppointment(appointment)"
-              >
-                <template #icon><EditOutlined /></template>
-              </a-button>
-            </div>
-            <div v-if="isMobile" class="flex gap-2">
-              <a-button
-                size="small"
-                type="primary"
-                class="!bg-[#10B981] !shadow-none"
-                @click="moveAppointment(appointment.id, 'waiting', 'completed')"
-              >
-                Bajarildi
-              </a-button>
-              <a-button
-                size="small"
-                type="primary"
-                class="!bg-[#EF4444] !shadow-none"
-                @click="moveAppointment(appointment.id, 'waiting', 'cancelled')"
-              >
-                Bekor qilindi
-              </a-button>
-            </div>
-          </div>
-        </div>
-        <div
-          v-else
-          class="border-2 border-dashed h-[115px] border-gray-300 rounded-lg flex flex-col justify-center items-center text-gray-500"
-        >
-          Hozirda bemorlar yo'q
+            Ha, to'landi
+          </a-button>
+          <a-button @click="handlePaymentConfirmation(false)">
+            Yo'q, to'lanmadi
+          </a-button>
         </div>
       </div>
+      <template #footer>
+        <span></span>
+      </template>
+    </a-modal>
 
-      <!-- Bajarildi -->
-      <div
-        class="bg-[#F3F4F6] rounded-lg p-4"
-        :class="{ 'drag-target': !isMobile }"
-        @dragover="onDragOver"
-        @drop="() => onDrop('completed')"
-      >
-        <span
-          class="font-semibold flex justify-between items-center mb-4 text-[17px] text-[#374151]"
-        >
-          Bajarildi
-          <span
-            class="rounded-full px-2 py-1 text-[12px] font-semibold bg-[#10B981] text-[#fff]"
-            >{{ appointments.completed.length }}</span
-          >
-        </span>
-        <div
-          v-if="appointments.completed.length > 0"
-          v-for="appointment in sortedAppointments(appointments.completed)"
-          :key="appointment.id"
-          :draggable="!isMobile"
-          @dragstart="onDragStart(appointment, 'completed')"
-          class="mb-3 cursor-grab shadow-xs hover:shadow-sm transition-shadow duration-200 bg-white rounded-lg p-4 border-l-4 border-[#10B981]"
-        >
-          <div class="flex flex-wrap gap-2 justify-between mb-2">
-            <div class="flex items-center gap-2">
-              <a-avatar size="small" class="bg-blue-500">
-                <template #icon><UserOutlined /></template>
-              </a-avatar>
-              <span class="2xl:text-base text-md font-semibold">{{
-                appointment.patientName
-              }}</span>
-            </div>
-            <div
-              class="flex items-center gap-2 2xl:text-xs font-medium text-gray-600 bg-gray-100 px-3 py-1 rounded-md"
-            >
-              <div class="flex items-center gap-2">
-                <CalendarOutlined class="text-gray-500 mb-0.5" />
-                {{ formatDateUz(appointment.date) }}
-              </div>
-              <div class="flex items-center gap-1">
-                <ClockCircleOutlined class="text-gray-500 mb-0.5" />
-                {{ appointment.time }}
-              </div>
-            </div>
-          </div>
-          <div class="flex items-center justify-between pt-2">
-            <span>{{ appointment.treatment }}</span>
-            <span>
-              <span>{{ priceFormatter.format(appointment.price) }} so'm</span>
-            </span>
-          </div>
-          <div
-            class="flex gap-2"
-            :class="{
-              'justify-between mt-4': isMobile,
-              'justify-end mt-2': !isMobile,
-            }"
-          >
-            <div>
-              <a-popconfirm
-                title="Rostdan o'chirmoqchimisiz?"
-                ok-text="Ha"
-                cancel-text="Yo‘q"
-                @confirm="deleteAppointment(appointment.id, 'completed')"
-              >
-                <a-button size="small" type="text" danger>
-                  <template #icon><DeleteOutlined /></template>
-                </a-button>
-              </a-popconfirm>
-              <a-button
-                size="small"
-                type="text"
-                @click="editAppointment(appointment)"
-              >
-                <template #icon><EditOutlined /></template>
-              </a-button>
-            </div>
-            <div v-if="isMobile" class="flex gap-2">
-              <a-button
-                size="small"
-                type="primary"
-                class="!bg-[#EAB308] !shadow-none"
-                @click="moveAppointment(appointment.id, 'completed', 'waiting')"
-              >
-                Kutilmoqda
-              </a-button>
-              <a-button
-                size="small"
-                type="primary"
-                class="!bg-[#EF4444] !shadow-none"
-                @click="
-                  moveAppointment(appointment.id, 'completed', 'cancelled')
-                "
-              >
-                Bekor qilindi
-              </a-button>
-            </div>
-          </div>
-        </div>
-        <div
-          v-else
-          class="border-2 border-dashed h-[115px] border-gray-300 rounded-lg flex flex-col justify-center items-center text-gray-500"
-        >
-          Hozirda bemorlar yo'q
-        </div>
-      </div>
-
-      <!-- Bekor qilindi -->
-      <div
-        class="bg-[#F3F4F6] rounded-lg p-4"
-        :class="{ 'drag-target': !isMobile }"
-        @dragover="onDragOver"
-        @drop="() => onDrop('cancelled')"
-      >
-        <span
-          class="font-semibold flex justify-between items-center mb-4 text-[17px] text-[#374151]"
-        >
-          Bekor qilindi
-          <span
-            class="rounded-full px-2 py-1 text-[12px] font-semibold bg-[#EF4444] text-[#fff]"
-            >{{ appointments.cancelled.length }}</span
-          >
-        </span>
-        <div
-          v-if="appointments.cancelled.length > 0"
-          v-for="appointment in sortedAppointments(appointments.cancelled)"
-          :key="appointment.id"
-          :draggable="!isMobile"
-          @dragstart="onDragStart(appointment, 'cancelled')"
-          class="mb-3 cursor-grab shadow-xs hover:shadow-sm transition-shadow duration-200 bg-white rounded-lg p-4 border-l-4 border-[#EF4444]"
-        >
-          <div class="flex flex-wrap gap-2 justify-between mb-2">
-            <div class="flex items-center gap-2">
-              <a-avatar size="small" class="bg-blue-500">
-                <template #icon><UserOutlined /></template>
-              </a-avatar>
-              <span class="2xl:text-base text-md font-semibold">{{
-                appointment.patientName
-              }}</span>
-            </div>
-            <div
-              class="flex items-center gap-2 2xl:text-xs font-medium text-gray-600 bg-gray-100 px-3 py-1 rounded-md"
-            >
-              <div class="flex items-center gap-2">
-                <CalendarOutlined class="text-gray-500 mb-0.5" />
-                {{ formatDateUz(appointment.date) }}
-              </div>
-              <div class="flex items-center gap-1">
-                <ClockCircleOutlined class="text-gray-500 mb-0.5" />
-                {{ appointment.time }}
-              </div>
-            </div>
-          </div>
-          <div class="flex items-center justify-between pt-2">
-            <span>{{ appointment.treatment }}</span>
-            <span>
-              <span>{{ priceFormatter.format(appointment.price) }} so'm</span>
-            </span>
-          </div>
-          <div class="flex justify-end gap-2 mt-2">
-            <div>
-              <a-popconfirm
-                title="Rostdan o'chirmoqchimisiz?"
-                ok-text="Ha"
-                cancel-text="Yo‘q"
-                @confirm="deleteAppointment(appointment.id, 'cancelled')"
-              >
-                <a-button size="small" type="text" danger>
-                  <template #icon><DeleteOutlined /></template>
-                </a-button>
-              </a-popconfirm>
-              <a-button
-                size="small"
-                type="text"
-                @click="editAppointment(appointment)"
-              >
-                <template #icon><EditOutlined /></template>
-              </a-button>
-            </div>
-            <!-- <div v-if="isMobile" class="flex gap-2">
-              <a-button
-                size="small"
-                type="primary"
-                class="!bg-[#EAB308]"
-                @click="moveAppointment(appointment.id, 'cancelled', 'waiting')"
-              >
-                Kutilmoqda
-              </a-button>
-              <a-button
-                size="small"
-                type="primary"
-                class="!bg-[#10B981]"
-                @click="
-                  moveAppointment(appointment.id, 'cancelled', 'completed')
-                "
-              >
-                Bajarildi
-              </a-button>
-            </div> -->
-          </div>
-        </div>
-        <div
-          v-else
-          class="border-2 border-dashed h-[115px] border-gray-300 rounded-lg flex flex-col justify-center items-center text-gray-500"
-        >
-          Hozirda bemorlar yo'q
-        </div>
-      </div>
-    </div>
-
-    <a-modal v-model:open="modalOpen" @ok="handleOk">
+    <!-- Main Modal -->
+    <a-modal v-model:open="modalOpen" @ok="handleOk" :width="600">
       <template #title>
         <h3 class="text-lg font-semibold text-center !mb-4">
-          {{
-            editingAppointment ? "Qabulni tahrirlash" : "Yangi qabul qo'shish"
-          }}
+          {{ editingVisit ? "Qabulni tahrirlash" : "Yangi qabul qo'shish" }}
         </h3>
       </template>
       <template #footer>
-        <a-button danger key="back" @click="modalOpen = false"
-          >Bekor qilish</a-button
-        >
+        <a-button danger key="back" @click="modalOpen = false">
+          Bekor qilish
+        </a-button>
         <a-button
           key="submit"
           type="primary"
           :loading="confirmLoading"
           @click="handleOk"
         >
-          {{ editingAppointment ? "Tahrirlash" : "Qabul qo'shish" }}
+          {{ editingVisit ? "Tahrirlash" : "Qabul qo'shish" }}
         </a-button>
       </template>
+
       <a-form layout="vertical">
-        <a-form-item label="Bemorning ism va familiyasi">
-          <a-input
-            v-model:value="formState.patientName"
-            placeholder="Ism va familiyani kiriting"
-          />
+        <a-form-item label="Bemorni tanlang" required>
+          <a-select
+            v-model:value="formState.patientId"
+            placeholder="Bemorni tanlang"
+            show-search
+            :filter-option="
+              (input, option) =>
+                option.label.toLowerCase().indexOf(input.toLowerCase()) >= 0
+            "
+          >
+            <a-select-option
+              v-for="patient in patients"
+              :key="patient.id"
+              :value="patient.id"
+              :label="`${patient.firstName} ${patient.lastName}`"
+            >
+              {{ patient.firstName }} {{ patient.lastName }}
+            </a-select-option>
+          </a-select>
         </a-form-item>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+          <a-form-item label="Sana va vaqt" required>
+            <a-date-picker
+              v-model:value="formState.visitDate"
+              show-time
+              placeholder="Sana va vaqtni tanlang"
+              style="width: 100%"
+              :disabled-date="disabledDate"
+              format="YYYY-MM-DD HH:mm"
+            />
+          </a-form-item>
+
+          <a-form-item label="Status">
+            <a-select
+              v-model:value="formState.statusId"
+              placeholder="Status tanlang"
+            >
+              <a-select-option
+                v-for="status in visitStatuses"
+                :key="status.id"
+                :value="status.id"
+              >
+                {{ status.name.uz }}
+              </a-select-option>
+            </a-select>
+          </a-form-item>
+        </div>
+
         <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
           <a-form-item label="Davolash turi">
             <a-select
-              v-model:value="formState.treatment"
-              :options="
-                treatmentOptions.map((item) => ({ label: item, value: item }))
-              "
+              v-model:value="formState.treatmentTypeId"
               placeholder="Davolash turini tanlang"
-              default-value="Konsultatsiya"
-              allow-clear
-              show-search
-            />
+            >
+              <a-select-option
+                v-for="treatment in treatmentTypes"
+                :key="treatment.id"
+                :value="treatment.id"
+              >
+                {{ treatment.name.uz }}
+              </a-select-option>
+            </a-select>
           </a-form-item>
-          <a-form-item label="Narxi (so'mda)">
+
+          <a-form-item label="To'lov turi">
+            <a-select
+              v-model:value="formState.paymentTypeId"
+              placeholder="To'lov turini tanlang"
+            >
+              <a-select-option
+                v-for="payment in paymentTypes"
+                :key="payment.id"
+                :value="payment.id"
+              >
+                {{ payment.name.uz }}
+              </a-select-option>
+            </a-select>
+          </a-form-item>
+        </div>
+
+        <a-form-item label="Shikoyat">
+          <a-textarea
+            v-model:value="formState.complaint"
+            placeholder="Bemorning shikoyatini kiriting"
+            :rows="2"
+          />
+        </a-form-item>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+          <a-form-item label="Hisob miqdori (so'm)">
             <a-input-number
               style="width: 100%"
-              v-model:value="formState.price"
-              placeholder="Narxni kiriting"
+              v-model:value="formState.invoiceAmount"
+              placeholder="Hisob miqdorini kiriting"
               :controls="false"
               :precision="0"
               :min="0"
               @keypress="onlyNumber"
             />
           </a-form-item>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
-          <a-form-item label="Sana">
-            <a-date-picker
-              v-model:value="formState.date"
-              placeholder="Sanani kiriting"
-              style="width: 100%"
-              :disabled-date="disabledDate"
-            />
-          </a-form-item>
-          <a-form-item label="Vaqti">
-            <a-time-picker
-              v-model:value="formState.time"
-              placeholder="Vaqtni kiriting"
-              format="HH:mm"
-              style="width: 100%"
+
+          <a-form-item label="To'lov holati" v-if="editingVisit">
+            <a-switch
+              v-model:checked="formState.isPaid"
+              checked-children="To'landi"
+              un-checked-children="To'lanmadi"
             />
           </a-form-item>
         </div>
@@ -660,5 +955,8 @@ const resetForm = () => {
 }
 .drag-target {
   cursor: grab;
+}
+:deep(.ant-modal-contentl) {
+  padding: 10px 12px !important;
 }
 </style>

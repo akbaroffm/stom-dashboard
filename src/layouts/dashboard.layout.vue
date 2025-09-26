@@ -6,6 +6,8 @@ import {
   MenuUnfoldOutlined,
   MenuOutlined,
   LogoutOutlined,
+  UserOutlined,
+  SettingOutlined,
 } from "@ant-design/icons-vue";
 import { useRoute } from "vue-router";
 import Sidebar from "@/components/dashboard/SideBar.vue";
@@ -14,7 +16,7 @@ import { useLoading } from "@/stores/loading";
 import { useFetch } from "@/composable/useFetch";
 
 const loadingStore = useLoading();
-const { $post } = useFetch();
+const { $post, $get } = useFetch();
 const route = useRoute();
 const collapsed = ref(false);
 const mobileMenuOpen = ref(false);
@@ -105,20 +107,38 @@ const handleMenuItemClick = () => {
   // }
 };
 
-async function handleLogout() {
+const user = ref(null);
+const getMe = async () => {
   loadingStore.startLoadingFn();
   try {
-    await $post("/Auth/Logout");
-    message.success("Muvaffaqiyatli chiqdingiz");
-
-    router.push({
-      path: "/auth",
-    });
-    loadingStore.stopLoadingFn();
+    user.value = await $get("auth/getMe");
   } catch (error) {
-    message.error("Xatolik yuz berdi");
+    message.error("Foydalanuvchi ma'lumotlarini olishda xatolik yuz berdi!", 3);
+  } finally {
+    loadingStore.stopLoadingFn();
   }
-}
+};
+
+onMounted(async () => {
+  await getMe();
+});
+
+const handleLogout = async () => {
+  loadingStore.startLoadingFn();
+  try {
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("refreshToken");
+    localStorage.removeItem("isAuth");
+
+    router.push("/auth");
+
+    message.success("Muvaffaqiyatli tizimdan chiqdingiz!", 3);
+  } catch (error) {
+    message.error("Logoutda xatolik yuz berdi!", 3);
+  } finally {
+    loadingStore.stopLoadingFn();
+  }
+};
 </script>
 
 <template>
@@ -156,7 +176,7 @@ async function handleLogout() {
     <Layout class="flex flex-col h-screen transition-all duration-300 w-full">
       <!-- Header -->
       <Layout.Header
-        class="!bg-white !flex !justify-between !items-center !p-0 !h-14 md:!h-16 border-b border-gray-200 shadow-sm"
+        class="!bg-white !flex !justify-between !items-center !h-16 !p-0 border-b border-gray-200 shadow-sm"
       >
         <div class="flex items-center justify-between px-3 md:px-6 w-full">
           <!-- Menu Toggle Button -->
@@ -193,15 +213,30 @@ async function handleLogout() {
             </Breadcrumb>
           </div>
 
-          <a-popconfirm
-            title="Rostdan tizimdan chiqmoqchimisiz?"
-            @confirm="handleLogout"
-          >
-            <a-button class="!flex !items-center" type="primary" danger>
-              <LogoutOutlined />
-              Chiqish
-            </a-button>
-          </a-popconfirm>
+          <div class="flex items-center space-x-4">
+            <div class="flex items-center space-x-4 flex-shrink-0">
+              <a-dropdown trigger="click">
+                <template #overlay>
+                  <a-menu>
+                    <a-menu-item key="profile">
+                      <UserOutlined class="mr-2" />
+                      Profil
+                    </a-menu-item>
+                    <a-menu-item key="settings">
+                      <SettingOutlined class="mr-2" />
+                      Sozlamalar
+                    </a-menu-item>
+                    <a-menu-divider />
+                    <a-menu-item key="logout" @click="handleLogout">
+                      <LogoutOutlined class="mr-2" />
+                      Chiqish
+                    </a-menu-item>
+                  </a-menu>
+                </template>
+                <a-button shape="circle" :icon="h(UserOutlined)" type="text" />
+              </a-dropdown>
+            </div>
+          </div>
         </div>
 
         <!-- Header Actions (Optional) -->
@@ -226,8 +261,13 @@ async function handleLogout() {
   </Layout>
 </template>
 
-<style>
+<style scoped>
 .ant-drawer-body {
   padding: 24px 12px !important;
+}
+
+:deep(.ant-dropdown-menu-title-content) {
+  display: flex;
+  align-items: center;
 }
 </style>

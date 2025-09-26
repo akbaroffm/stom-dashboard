@@ -61,7 +61,6 @@ const genderOptions = [
   { label: "Ayol", value: 2, icon: WomanOutlined },
 ];
 
-// Handle form submission
 const handleSubmit = async () => {
   isLoading.value = true;
 
@@ -79,14 +78,17 @@ const handleSubmit = async () => {
       const registerResponse = await $post("auth/register", registerPayload);
 
       if (registerResponse) {
-        // Switch to login mode without auto-login
         isRegisterMode.value = false;
 
-        // Clear registration-specific fields and password, keep phoneNumber
         formState.firstName = "";
         formState.lastName = "";
         formState.genderId = null;
         formState.password = "";
+
+        const { accessToken, refreshToken } = registerResponse.content;
+
+        localStorage.setItem("accessToken", accessToken);
+        localStorage.setItem("refreshToken", refreshToken);
 
         message.success(
           "Muvaffaqiyatli ro'yxatdan o'tdingiz! Iltimos, tizimga kiring.",
@@ -104,6 +106,11 @@ const handleSubmit = async () => {
       const loginResponse = await $post("auth/login", loginPayload);
 
       if (loginResponse) {
+        const { accessToken, refreshToken } = loginResponse.content;
+
+        localStorage.setItem("accessToken", accessToken);
+        localStorage.setItem("refreshToken", refreshToken);
+
         message.success("Muvaffaqiyatli tizimga kirdingiz!", 5);
         router.push("/dashboard/main");
         emit("loginSuccess");
@@ -117,7 +124,7 @@ const handleSubmit = async () => {
       (isRegisterMode.value
         ? "Bu foydalanuvchi avval ro'yhatdan o'tgan!"
         : "Telefon raqam yoki parolda xatolik bor!");
-    message.error(errorMessage, 5); // Display error for 5 seconds
+    message.error(errorMessage, 5);
   } finally {
     isLoading.value = false;
   }
@@ -129,7 +136,6 @@ const toggleMode = () => {
 
 const onlyNumber = (e) => {
   const charCode = e.charCode ? e.charCode : e.keyCode;
-  // 48–57 -> '0'–'9'
   if (charCode < 48 || charCode > 57) {
     e.preventDefault();
   }
@@ -326,7 +332,6 @@ const emit = defineEmits(["loginSuccess"]);
   padding: 0 !important;
 }
 
-/* Ensure ant-message is visible */
 :deep(.ant-message) {
   z-index: 9999 !important;
   top: 20px !important;

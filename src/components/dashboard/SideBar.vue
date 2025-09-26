@@ -41,7 +41,21 @@ const handleMenuClick = ({ key }) => {
 
 <template>
   <div class="flex flex-col bg-white">
-    <div class="mt-0 md:mt-16">
+    <div class="flex items-center justify-center pt-3 pb-2">
+      <img
+        v-if="!collapsed"
+        src="@/assets/images/png/logo.png"
+        alt="Logo"
+        class="!w-[150px] !h-[50px] !object-contain"
+      />
+      <img
+        v-else
+        src="@/assets/images/png/half-logo.png"
+        alt="Mini Logo"
+        class="!w-[100px] !h-[50px] !object-contain"
+      />
+    </div>
+    <div>
       <Menu
         mode="inline"
         :inline-collapsed="collapsed"
