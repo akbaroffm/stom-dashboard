@@ -193,7 +193,7 @@ onMounted(async () => {
 
 <template>
   <div>
-    <div class="mb-2 md:mb-4">
+    <div class="mb-2">
       <div class="hidden md:flex items-center justify-end">
         <a-range-picker
           v-model:value="dateRange"

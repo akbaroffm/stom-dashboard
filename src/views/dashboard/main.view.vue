@@ -75,12 +75,28 @@ onMounted(fetchStats);
 
 <template>
   <div>
-    <div class="flex justify-end mb-2">
-      <RangePicker
-        v-model:value="dateRange"
-        format="YYYY-MM-DD"
-        :allow-clear="true"
-      />
+    <div>
+      <div class="hidden md:flex justify-end mb-2">
+        <RangePicker
+          v-model:value="dateRange"
+          format="YYYY-MM-DD"
+          :allow-clear="true"
+        />
+      </div>
+      <div class="flex md:hidden gap-2 mb-2">
+        <DatePicker
+          v-model:value="dateRange[0]"
+          format="YYYY-MM-DD"
+          :allow-clear="true"
+          class="!w-full"
+        />
+        <DatePicker
+          v-model:value="dateRange[1]"
+          format="YYYY-MM-DD"
+          :allow-clear="true"
+          class="!w-full"
+        />
+      </div>
     </div>
 
     <div v-if="cards.length" class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
