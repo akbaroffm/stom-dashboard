@@ -176,7 +176,7 @@ const handleLogout = async () => {
     <Layout class="flex flex-col h-screen transition-all duration-300 w-full">
       <!-- Header -->
       <Layout.Header
-        class="!bg-white !flex !justify-between !items-center !h-16 !p-0 border-b border-gray-200 shadow-sm"
+        class="!bg-white !flex !justify-between !items-center !h-12 md:!h-16 !p-0 border-b border-gray-200 shadow-sm"
       >
         <div class="flex items-center justify-between px-3 md:px-6 w-full">
           <!-- Menu Toggle Button -->

@@ -1,6 +1,6 @@
 <script setup>
 import * as Icons from "@ant-design/icons-vue";
-import { ref, onMounted, watch, computed } from "vue";
+import { ref, onMounted, watch } from "vue";
 import { useFetch } from "@/composable/useFetch";
 import { message } from "ant-design-vue";
 import dayjs from "dayjs";
@@ -9,13 +9,6 @@ const { $get } = useFetch();
 
 const stats = ref({});
 const loading = ref(false);
-
-const popupStyle = computed(() => {
-  if (window.innerWidth < 640) {
-    return { width: "100%" };
-  }
-  return {};
-});
 
 // Date range state
 const dateRange = ref([dayjs().startOf("day"), dayjs().endOf("day")]);
@@ -54,6 +47,7 @@ const rangePresets = ref([
 ]);
 
 const loadStats = async () => {
+  if (!dateRange.value || !dateRange.value[0] || !dateRange.value[1]) return;
   try {
     loading.value = true;
 
@@ -106,15 +100,6 @@ const getPaidPercentage = () => {
 };
 
 const cards = ref([
-  //   {
-  //     key: "totalInvoices",
-  //     title: "Jami hisoblar",
-  //     value: () => stats.value.total || 0,
-  //     suffix: "ta",
-  //     trend: { dir: "up", pct: () => getPaidPercentage() },
-  //     icon: "FileOutlined",
-  //     color: "from-blue-500 to-blue-600",
-  //   },
   {
     key: "completed",
     title: "To'landi",
@@ -150,7 +135,6 @@ const cards = ref([
     trend: { dir: "up", pct: () => getPaidPercentage() },
     color: "from-amber-500 to-amber-600",
   },
-
   {
     key: "unpaidInvoices",
     title: "To'lanmagan miqdor",
@@ -209,16 +193,33 @@ onMounted(async () => {
 
 <template>
   <div>
-    <!-- Date Range Filter -->
-    <div class="mb-4">
-      <div class="flex flex-wrap items-center justify-end gap-4">
+    <div class="mb-2 md:mb-4">
+      <div class="hidden md:flex items-center justify-end">
         <a-range-picker
           v-model:value="dateRange"
           :presets="rangePresets"
           format="DD.MM.YYYY"
-          :placeholder="['Boshlanish sanasi', 'Tugash sanasi']"
+          :placeholder="['Boshlanish', 'Tugash']"
           :get-popup-container="(trigger) => trigger.parentNode"
-          :popup-style="popupStyle"
+        />
+      </div>
+
+      <div class="flex md:hidden gap-2">
+        <a-date-picker
+          v-model:value="dateRange[0]"
+          format="DD.MM.YYYY"
+          placeholder="Boshlanish sanasi"
+          :get-popup-container="(trigger) => trigger.parentNode"
+          class="w-full"
+          @change="loadStats"
+        />
+        <a-date-picker
+          v-model:value="dateRange[1]"
+          format="DD.MM.YYYY"
+          placeholder="Tugash sanasi"
+          :get-popup-container="(trigger) => trigger.parentNode"
+          class="w-full"
+          @change="loadStats"
         />
       </div>
     </div>
@@ -317,3 +318,12 @@ onMounted(async () => {
     </a-spin>
   </div>
 </template>
+
+<style scoped>
+@media (max-width: 640px) {
+  :deep(.ant-picker) {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}
+</style>

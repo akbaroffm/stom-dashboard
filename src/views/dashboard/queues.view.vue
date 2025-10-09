@@ -120,6 +120,7 @@ onUnmounted(() => {
 });
 
 const loadVisits = async () => {
+  if (!dateRange.value || !dateRange.value[0] || !dateRange.value[1]) return;
   try {
     loading.value = true;
 
@@ -419,15 +420,48 @@ watch(
 
 <template>
   <div class="pb-4">
-    <div class="flex items-center justify-between mb-2">
-      <a-range-picker
-        v-model:value="dateRange"
-        format="DD.MM.YYYY"
-        :placeholder="['Boshlanish sanasi', 'Tugash sanasi']"
-        :get-popup-container="(trigger) => trigger.parentNode"
-        :popup-style="popupStyle"
-      />
-      <a-button @click="showModal" type="primary"> + Qabul qo'shish </a-button>
+    <div class="flex items-center justify-between gap-2 mb-2">
+      <div class="hidden md:flex items-center flex-1">
+        <a-range-picker
+          v-model:value="dateRange"
+          format="DD.MM.YYYY"
+          :placeholder="['Boshlanish', 'Tugash']"
+          :get-popup-container="(trigger) => trigger.parentNode"
+        />
+        <a-button
+          @click="showModal"
+          type="primary"
+          class="whitespace-nowrap !hidden"
+        >
+          + Qabul qo'shish
+        </a-button>
+      </div>
+
+      <div class="flex md:hidden gap-2 flex-1">
+        <a-date-picker
+          v-model:value="dateRange[0]"
+          format="DD.MM.YYYY"
+          placeholder="Boshlanish sanasi"
+          :get-popup-container="(trigger) => trigger.parentNode"
+          class="w-full"
+          @change="loadVisits"
+        />
+        <a-date-picker
+          v-model:value="dateRange[1]"
+          format="DD.MM.YYYY"
+          placeholder="Tugash sanasi"
+          :get-popup-container="(trigger) => trigger.parentNode"
+          class="w-full"
+          @change="loadVisits"
+        />
+      </div>
+      <a-button
+        @click="showModal"
+        type="primary"
+        class="whitespace-nowrap md:hidden block"
+      >
+        + Qabul qo'shish
+      </a-button>
     </div>
 
     <a-spin :spinning="loading">
