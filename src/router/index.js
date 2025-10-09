@@ -70,6 +70,10 @@ const router = createRouter({
       component: () => import("@/layouts/auth.layout.vue"),
       children: [],
     },
+    {
+      path: "/login",
+      redirect: "/auth",
+    },
   ],
 });
 

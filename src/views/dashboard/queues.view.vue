@@ -7,11 +7,13 @@ import {
   CalendarOutlined,
   ClockCircleOutlined,
 } from "@ant-design/icons-vue";
-import { reactive, ref, onMounted, onUnmounted, computed } from "vue";
+import { reactive, ref, onMounted, onUnmounted, computed, watch } from "vue";
 import dayjs from "dayjs";
 import { useFetch } from "@/composable/useFetch";
+import moment from "moment";
 
 const { $get, $post, $put, $delete } = useFetch();
+const dateRange = ref([dayjs().startOf("day"), dayjs().endOf("day")]);
 
 const formatDateUz = (dateStr) => {
   if (!dateStr) return "";
@@ -65,7 +67,6 @@ const confirmLoading = ref(false);
 const editingVisit = ref(null);
 const loading = ref(false);
 
-// Payment confirmation modal
 const paymentModalOpen = ref(false);
 const pendingStatusUpdate = ref(null);
 
@@ -77,13 +78,12 @@ const formState = reactive({
   notes: "",
   invoiceAmount: null,
   paymentTypeId: null,
-  statusId: 1, // Default to Awaiting
+  statusId: 1,
   treatmentTypeId: null,
   treatmentDescription: "",
   isPaid: false,
 });
 
-// Computed properties for categorizing visits by status
 const appointments = computed(() => {
   const waiting = visits.value.filter((visit) => visit.statusId === 1);
   const completed = visits.value.filter((visit) => visit.statusId === 2);
@@ -92,7 +92,6 @@ const appointments = computed(() => {
   return { waiting, completed, cancelled };
 });
 
-// Mobile detection
 const checkIsMobile = () => {
   const touchAvailable =
     "ontouchstart" in window || navigator.maxTouchPoints > 0;
@@ -120,11 +119,16 @@ onUnmounted(() => {
   window.removeEventListener("resize", handleResize);
 });
 
-// API calls
 const loadVisits = async () => {
   try {
     loading.value = true;
-    const response = await $get("Visit/GetAll");
+
+    const fromDate = dateRange.value[0].format("YYYY-MM-DD");
+    const toDate = dateRange.value[1].format("YYYY-MM-DD");
+
+    const response = await $get(
+      `Visit/GetAll?from=${fromDate}&to=${toDate}&take=-1`
+    );
     visits.value = response || [];
   } catch (error) {
     message.error("Qabullarni yuklashda xatolik yuz berdi!");
@@ -137,9 +141,7 @@ const loadVisits = async () => {
 const loadPatients = async () => {
   try {
     const response = await $get("Patient/GetAllUsers?CanGetMyPatients=true");
-    patients.value = (response.content || []).filter(
-      (user) => user.roleId === 2
-    );
+    patients.value = (response || []).filter((user) => user.roleId === 2);
   } catch (error) {
     console.error("Error loading patients:", error);
   }
@@ -175,7 +177,6 @@ const loadVisitStatuses = async () => {
   }
 };
 
-// Payment confirmation functions
 const showPaymentConfirmation = (visitId, newStatusId) => {
   const visit = visits.value.find((v) => v.id === visitId);
   pendingStatusUpdate.value = {
@@ -198,7 +199,6 @@ const handlePaymentConfirmation = async (isPaid) => {
   }
 };
 
-// Drag and drop functionality
 const onDragStart = (item, from) => {
   if (!isMobile.value) {
     draggedItem.value = item;
@@ -218,7 +218,6 @@ const onDrop = async (to) => {
     const newStatusId = statusMap[to];
 
     if (newStatusId === 2) {
-      // If moving to completed status, show payment confirmation
       showPaymentConfirmation(draggedItem.value.id, newStatusId);
     } else {
       await updateVisitStatus(draggedItem.value.id, newStatusId);
@@ -231,7 +230,6 @@ const moveAppointment = async (visitId, fromStatus, toStatus) => {
   const newStatusId = statusMap[toStatus];
 
   if (newStatusId === 2) {
-    // If moving to completed status, show payment confirmation
     showPaymentConfirmation(visitId, newStatusId);
   } else {
     await updateVisitStatus(visitId, newStatusId);
@@ -243,16 +241,18 @@ const updateVisitStatus = async (visitId, newStatusId, isPaid = false) => {
     const visit = visits.value.find((v) => v.id === visitId);
     if (!visit) return;
 
-    // Get the invoice amount - prioritize invoice.amount, fallback to invoiceAmount
     const invoiceAmount = visit.invoice?.amount || visit.invoiceAmount || 0;
 
     const updatePayload = {
       patientId: visit.patient.id,
-      visitDate: visit.visitDate,
+      visitDate: visit.visitDate
+        ? moment(visit.visitDate).format("YYYY-MM-DDTHH:mm:ss")
+        : null,
+
       complaint: visit.complaint || "",
       diagnosis: visit.diagnosis || "",
       notes: visit.notes || "",
-      invoiceAmount: invoiceAmount, // Always send the invoice amount
+      invoiceAmount: invoiceAmount,
       paymentTypeId: visit.paymentTypeId || visit.invoice?.paymentTypeId || 1,
       statusId: newStatusId,
       treatmentTypeId: visit?.treatmentTypeId || 1,
@@ -263,8 +263,6 @@ const updateVisitStatus = async (visitId, newStatusId, isPaid = false) => {
           ? isPaid
           : visit.isPaid || visit.invoice?.isPaid || false,
     };
-
-    console.log("Sending update payload:", updatePayload); // Debug log
 
     await $put("Visit/UpdateVisit", updatePayload);
     await loadVisits();
@@ -285,7 +283,6 @@ const deleteVisit = async (visitId) => {
   }
 };
 
-// Modal functions
 const showModal = () => {
   resetForm();
   editingVisit.value = null;
@@ -313,10 +310,11 @@ const handleOk = async () => {
     confirmLoading.value = true;
 
     if (editingVisit.value) {
-      // Update existing visit
       const updatePayload = {
         patientId: formState.patientId,
-        visitDate: formState.visitDate.toISOString(),
+        visitDate: formState.visitDate
+          ? formState.visitDate.format("YYYY-MM-DDTHH:mm:ss")
+          : null,
         complaint: formState.complaint,
         diagnosis: formState.diagnosis,
         notes: formState.notes,
@@ -329,13 +327,19 @@ const handleOk = async () => {
         isPaid: formState.isPaid,
       };
 
-      await $put("Visit/UpdateVisit", updatePayload);
-      message.success("Qabul muvaffaqiyatli yangilandi!");
+      const res = await $put("Visit/UpdateVisit", updatePayload);
+      if (res?.code === 200) {
+        message.success("Qabul muvaffaqiyatli yangilandi!");
+      } else {
+        message.error("Yangilashda xatolik yuz berdi!");
+        return;
+      }
     } else {
-      // Create new visit
       const createPayload = {
         patientId: formState.patientId,
-        visitDate: formState.visitDate.toISOString(),
+        visitDate: formState.visitDate
+          ? formState.visitDate.format("YYYY-MM-DDTHH:mm:ss")
+          : null,
         complaint: formState.complaint,
         diagnosis: formState.diagnosis,
         notes: formState.notes,
@@ -346,8 +350,13 @@ const handleOk = async () => {
         treatmentDescription: formState.treatmentDescription,
       };
 
-      await $post("Visit/AddVisit", createPayload);
-      message.success("Qabul muvaffaqiyatli qo'shildi!");
+      const res = await $post("Visit/AddVisit", createPayload);
+      if (res?.code === 200) {
+        message.success("Qabul muvaffaqiyatli qo'shildi!");
+      } else {
+        message.error("Qo'shishda xatolik yuz berdi!");
+        return;
+      }
     }
 
     await loadVisits();
@@ -386,7 +395,6 @@ const resetForm = () => {
   formState.isPaid = false;
 };
 
-// Helper function to get patient name
 const getPatientName = (visit) => {
   if (visit.patient) {
     return `${visit.patient.firstName} ${visit.patient.lastName}`;
@@ -394,18 +402,32 @@ const getPatientName = (visit) => {
   return "Unknown Patient";
 };
 
-// Helper function to get treatment name
 const getTreatmentName = (visit) => {
   return visit.treatmentType.uz || "No treatment specified";
 };
+
+watch(
+  dateRange,
+  () => {
+    if (dateRange.value && dateRange.value[0] && dateRange.value[1]) {
+      loadVisits();
+    }
+  },
+  { deep: true }
+);
 </script>
 
 <template>
   <div class="pb-4">
-    <div class="flex justify-end mb-2">
-      <a-button @click="showModal" type="primary" size="middle">
-        + Qabul qo'shish
-      </a-button>
+    <div class="flex items-center justify-between mb-2">
+      <a-range-picker
+        v-model:value="dateRange"
+        format="DD.MM.YYYY"
+        :placeholder="['Boshlanish sanasi', 'Tugash sanasi']"
+        :get-popup-container="(trigger) => trigger.parentNode"
+        :popup-style="popupStyle"
+      />
+      <a-button @click="showModal" type="primary"> + Qabul qo'shish </a-button>
     </div>
 
     <a-spin :spinning="loading">
@@ -414,7 +436,7 @@ const getTreatmentName = (visit) => {
       >
         <!-- Kutilmoqda -->
         <div
-          class="bg-[#F3F4F6] rounded-lg p-4"
+          class="bg-[#F3F4F6] rounded-lg p-4 h-150 overflow-auto"
           :class="{ 'drag-target': !isMobile }"
           @dragover="onDragOver"
           @drop="() => onDrop('waiting')"
@@ -471,8 +493,8 @@ const getTreatmentName = (visit) => {
                   <span
                     class="py-0.5 px-2 rounded-md"
                     :class="{
-                      'bg-[#10B981] text-[#fff]': visit.invoice?.isPaid,
-                      'bg-[#EF4444] text-[#fff]': !visit.invoice?.isPaid,
+                      'bg-[#10B9811a] text-[#10B981]': visit.invoice?.isPaid,
+                      'bg-[#EF44441a] text-[#EF4444]': !visit.invoice?.isPaid,
                     }"
                   >
                     {{ priceFormatter.format(visit.invoice?.amount || 0) }} so'm
@@ -601,8 +623,8 @@ const getTreatmentName = (visit) => {
                   <span
                     class="py-0.5 px-2 rounded-md"
                     :class="{
-                      'bg-[#10B981] text-[#fff]': visit.invoice?.isPaid,
-                      'bg-[#EF4444] text-[#fff]': !visit.invoice?.isPaid,
+                      'bg-[#10B9811a] text-[#10B981]': visit.invoice?.isPaid,
+                      'bg-[#EF44441a] text-[#EF4444]': !visit.invoice?.isPaid,
                     }"
                   >
                     {{ priceFormatter.format(visit.invoice?.amount || 0) }} so'm
@@ -731,8 +753,8 @@ const getTreatmentName = (visit) => {
                   <span
                     class="py-0.5 px-2 rounded-md"
                     :class="{
-                      'bg-[#10B981] text-[#fff]': visit.invoice?.isPaid,
-                      'bg-[#EF4444] text-[#fff]': !visit.invoice?.isPaid,
+                      'bg-[#10B9811a] text-[#10B981]': visit.invoice?.isPaid,
+                      'bg-[#EF44441a] text-[#EF4444]': !visit.invoice?.isPaid,
                     }"
                   >
                     {{ priceFormatter.format(visit.invoice?.amount || 0) }} so'm
@@ -787,7 +809,9 @@ const getTreatmentName = (visit) => {
       @cancel="paymentModalOpen = false"
     >
       <div class="text-center">
-        <p class="text-lg !mb-4">Mijoz to'lovni amalga oshirdimi?</p>
+        <p class="text-lg !font-semibold !mb-4">
+          Mijoz to'lovni amalga oshirdimi?
+        </p>
         <div class="flex justify-center gap-4">
           <a-button
             type="primary"
@@ -860,20 +884,16 @@ const getTreatmentName = (visit) => {
               format="YYYY-MM-DD HH:mm"
             />
           </a-form-item>
-
-          <a-form-item label="Status">
-            <a-select
-              v-model:value="formState.statusId"
-              placeholder="Status tanlang"
-            >
-              <a-select-option
-                v-for="status in visitStatuses"
-                :key="status.id"
-                :value="status.id"
-              >
-                {{ status.name.uz }}
-              </a-select-option>
-            </a-select>
+          <a-form-item label="Hisob miqdori (so'm)">
+            <a-input-number
+              style="width: 100%"
+              v-model:value="formState.invoiceAmount"
+              placeholder="Hisob miqdorini kiriting"
+              :controls="false"
+              :precision="0"
+              :min="0"
+              @keypress="onlyNumber"
+            />
           </a-form-item>
         </div>
 
@@ -916,28 +936,6 @@ const getTreatmentName = (visit) => {
             :rows="2"
           />
         </a-form-item>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
-          <a-form-item label="Hisob miqdori (so'm)">
-            <a-input-number
-              style="width: 100%"
-              v-model:value="formState.invoiceAmount"
-              placeholder="Hisob miqdorini kiriting"
-              :controls="false"
-              :precision="0"
-              :min="0"
-              @keypress="onlyNumber"
-            />
-          </a-form-item>
-
-          <a-form-item label="To'lov holati" v-if="editingVisit">
-            <a-switch
-              v-model:checked="formState.isPaid"
-              checked-children="To'landi"
-              un-checked-children="To'lanmadi"
-            />
-          </a-form-item>
-        </div>
       </a-form>
     </a-modal>
   </div>

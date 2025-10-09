@@ -10,128 +10,131 @@ import {
   SearchOutlined,
   CloseOutlined,
   EyeOutlined,
+  MedicineBoxOutlined,
+  FileTextOutlined,
+  DownloadOutlined,
 } from "@ant-design/icons-vue";
 import { reactive, ref, computed, watch, onMounted } from "vue";
 import dayjs from "dayjs";
 import "dayjs/locale/uz";
+import { useFetch } from "@/composable/useFetch";
 
-// Bemorlar ro'yxati
-const patients = ref([
-  {
-    id: 1,
-    fullName: "Og'abek Hamzakulov",
-    phone: "+998 90 123 45 67",
-    birthYear: "1995",
-    code: "C001",
-  },
-  {
-    id: 2,
-    fullName: "Mirolim Akbarov",
-    phone: "+998 91 987 65 43",
-    birthYear: "1988",
-    code: "C002",
-  },
-  {
-    id: 3,
-    fullName: "Dilnoza Rahimova",
-    phone: "+998 93 555 44 33",
-    birthYear: "1992",
-    code: "C003",
-  },
-  {
-    id: 4,
-    fullName: "Zafar Usmonov",
-    phone: "+998 94 111 22 33",
-    birthYear: "1990",
-    code: "C004",
-  },
-]);
+const { $get, $delete, $post, $put } = useFetch();
 
+const activeTab = ref("notes");
+
+const patients = ref([]);
 const searchQuery = ref("");
+const loading = ref(false);
 
 const filteredPatients = computed(() => {
   let result = patients.value;
   if (searchQuery.value) {
-    const lowerQuery = searchQuery.value.toLowerCase();
+    const lowerQuery = searchQuery.value?.toLowerCase();
     result = patients.value.filter((patient) =>
-      patient.fullName.toLowerCase().includes(lowerQuery)
+      patient.firstName?.toLowerCase().includes(lowerQuery)
     );
   }
   return result.slice(0, searchQuery.value ? result.length : 3);
 });
 
-const selectedPatient = ref(patients.value[0] || null);
+const selectedPatient = ref(null);
 
-// Eslatmalar ro'yxati
-const notes = ref([
-  {
-    id: 1,
-    patientId: 1,
-    type: "Davolash",
-    title: "Muntazam Tozalash - Yanvar 2024",
-    content:
-      "Bemor muntazam tozalash uchun keldi. Tish chuqurchalari aniqlandi. Pastki aziz tishlarida engil plaque to'plami. Yaxshiroq ig'bwal tozalash usulini tavvista qildim. Keyingi tozalash 6 oydan keyin rejalashtirildi.",
-    dateTime: "2024-01-15",
-    attachments: [
-      {
-        uid: "1",
-        name: "rentgen_yan2024.jpg",
-        status: "done",
-        url: "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k=",
-        type: "image/jpeg",
-      },
-      {
-        uid: "2",
-        name: "tozalash_eslatmalari.pdf",
-        status: "done",
-        url: "data:application/pdf;base64,JVBERi0xLjQKJdPr6eEKMSAwIG9iago8PAovVHlwZSAvQ2F0YWxvZwovUGFnZXMgMiAwIFIKPj4KZW5kb2JqCjIgMCBvYmoKPDwKL1R5cGUgL1BhZ2VzCi9LaWRzIFszIDAgUl0KL0NvdW50IDEKL01lZGlhQm94IFswIDAgNjEyIDc5Ml0KPj4KZW5kb2JqCjMgMCBvYmoKPDwKL1R5cGUgL1BhZ2UKL1BhcmVudCAyIDAgUgovUmVzb3VyY2VzIDw8Ci9Gb250IDw8Ci9GMSA0IDAgUgo+Pgo+PgovTWVkaWFCb3ggWzAgMCA2MTIgNzkyXQovQ29udGVudHMgNSAwIFIKPj4KZW5kb2JqCjQgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL1N1YnR5cGUgL1R5cGUxCi9CYXNlRm9udCAvVGltZXMtUm9tYW4KPj4KZW5kb2JqCjUgMCBvYmoKPDwKL0xlbmd0aCA0NAo+PgpzdHJlYW0KQlQKL0YxIDEyIFRmCjcyIDcyMCBUZAooSGVsbG8gV29ybGQhKSBUagpFVApzdHJlYW0KZW5kb2JqCnhyZWYKMCA2CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAwOSAwMDAwMCBuIAowMDAwMDAwMDU4IDAwMDAwIG4gCjAwMDAwMDAxMTUgMDAwMDAgbiAKMDAwMDAwMjQ1IDAwMDAwIG4gCjAwMDAwMDAzMTIgMDAwMDAgbiAKdHJhaWxlcgo8PAovU2l6ZSA2Ci9Sb290IDEgMCBSCj4+CnN0YXJ0eHJlZgo0MDIKJSVFT0YK",
-        type: "application/pdf",
-      },
-    ],
-    status: "completed",
-  },
-  {
-    id: 2,
-    patientId: 1,
-    type: "Tibbiy Tarix",
-    title: "Tibbiy Tarix Yangilanishi",
-    content:
-      "Bemor yangi tibbiy holatlar haqida xabar bermadi. Hozirda qon bosimi dori (Lisinopril 10mg kunlik) qabul qilmoqda. Ma'lum dori allergiyalari yo'q. Oilada diabet tarixi mavjud.",
-    dateTime: "2024-01-15",
-    attachments: [],
-    status: "active",
-  },
-]);
+const notes = ref([]);
+const notesLoading = ref(false);
 
-// Eslatma turlari
-const noteTypes = [
-  { value: "Davolash", label: "Davolash", color: "#1890ff" },
-  { value: "Tibbiy Tarix", label: "Tibbiy Tarix", color: "#52c41a" },
-  { value: "Eslatma", label: "Eslatma", color: "#faad14" },
-  {
-    value: "Navbatdagi Uchrashuv",
-    label: "Navbatdagi Uchrashuv",
-    color: "#722ed1",
-  },
-];
+const medicalHistory = ref(null);
+const historyLoading = ref(false);
 
 const modalOpen = ref(false);
+const historyModalOpen = ref(false);
 const confirmLoading = ref(false);
 const editingNote = ref(null);
 
 const formState = reactive({
   patientId: null,
-  type: "Davolash",
   title: "",
-  content: "",
-  dateTime: null,
-  attachments: [],
+  description: "",
+  noteDate: null,
+  files: "",
+});
+
+const historyFormState = reactive({
+  patientId: null,
+  allergies: "",
+  chronicDiseases: "",
+  dentalHistory: "",
+  currentMedications: "",
+  surgeries: "",
+  otherNotes: "",
 });
 
 const uploadFileList = ref([]);
 const previewVisible = ref(false);
 const previewImage = ref("");
 const previewTitle = ref("");
+const uploadingFiles = ref(false);
+
+const BASE_URL = "https://natalee-metapneustic-stanley.ngrok-free.dev/";
+
+const loadPatients = async () => {
+  loading.value = true;
+  try {
+    const response = await $get("/Patient/GetAllUsers?CanGetMyPatients=true");
+    if (response && Array.isArray(response)) {
+      patients.value = response;
+      if (patients.value.length > 0 && !selectedPatient.value) {
+        selectedPatient.value = patients.value[0];
+        await loadNotes(patients.value[0].id);
+        await loadMedicalHistory(patients.value[0].id);
+      }
+    }
+  } catch (error) {
+    message.error("Bemorlarni yuklashda xatolik yuz berdi");
+    console.error(error);
+  } finally {
+    loading.value = false;
+  }
+};
+
+const loadNotes = async (patientId) => {
+  notesLoading.value = true;
+  try {
+    const response = await $get(
+      `/Note/GetAll?FilteringExpression=patientId==${patientId}`
+    );
+    if (response && Array.isArray(response)) {
+      notes.value = response.map((note) => ({
+        ...note,
+        attachments: note.files ? parseFiles(note.files) : [],
+      }));
+    }
+  } catch (error) {
+    message.error("Eslatmalarni yuklashda xatolik yuz berdi");
+    console.error(error);
+  } finally {
+    notesLoading.value = false;
+  }
+};
+
+const loadMedicalHistory = async (patientId) => {
+  historyLoading.value = true;
+  try {
+    const response = await $get(
+      `/MedicalHistory/GetAll?FilteringExpression=patientId==${patientId}`
+    );
+    if (response && Array.isArray(response) && response.length > 0) {
+      medicalHistory.value = response[0];
+    } else {
+      medicalHistory.value = null;
+    }
+  } catch (error) {
+    message.error("Tibbiy tarixni yuklashda xatolik yuz berdi");
+    console.error(error);
+  } finally {
+    historyLoading.value = false;
+  }
+};
 
 const filteredNotes = computed(() => {
   if (!selectedPatient.value) return [];
@@ -140,8 +143,10 @@ const filteredNotes = computed(() => {
   );
 });
 
-const selectPatient = (patient) => {
+const selectPatient = async (patient) => {
   selectedPatient.value = patient;
+  await loadNotes(patient.id);
+  await loadMedicalHistory(patient.id);
 };
 
 const showModal = () => {
@@ -150,199 +155,322 @@ const showModal = () => {
   modalOpen.value = true;
 };
 
-// Fayl formatini aniqlash
+const showHistoryModal = () => {
+  if (medicalHistory.value) {
+    historyFormState.patientId = medicalHistory.value.patientId;
+    historyFormState.allergies = medicalHistory.value.allergies || "";
+    historyFormState.chronicDiseases =
+      medicalHistory.value.chronicDiseases || "";
+    historyFormState.dentalHistory = medicalHistory.value.dentalHistory || "";
+    historyFormState.currentMedications =
+      medicalHistory.value.currentMedications || "";
+    historyFormState.surgeries = medicalHistory.value.surgeries || "";
+    historyFormState.otherNotes = medicalHistory.value.otherNotes || "";
+  } else {
+    historyFormState.patientId = selectedPatient.value?.id || null;
+    historyFormState.allergies = "";
+    historyFormState.chronicDiseases = "";
+    historyFormState.dentalHistory = "";
+    historyFormState.currentMedications = "";
+    historyFormState.surgeries = "";
+    historyFormState.otherNotes = "";
+  }
+  historyModalOpen.value = true;
+};
+
+const parseFiles = (filesString) => {
+  if (!filesString) return [];
+  try {
+    const fileNames = filesString
+      .split(",")
+      .map((f) => f.trim())
+      .filter((f) => f);
+    return fileNames.map((name, index) => ({
+      uid: `file-${index}`,
+      name: extractFileName(name),
+      status: "done",
+      url: name,
+      fullPath: name,
+    }));
+  } catch (error) {
+    return [];
+  }
+};
+
+const extractFileName = (path) => {
+  if (!path) return "";
+  const parts = path.split(/[/\\]/);
+  return parts[parts.length - 1];
+};
+
+const stringifyFiles = (fileList) => {
+  if (!fileList || fileList.length === 0) return "";
+  return fileList
+    .map((file) => file.fullPath || file.url || file.name)
+    .join(", ");
+};
+
 const getFileType = (fileName) => {
   const extension = fileName.split(".").pop().toLowerCase();
   const imageExtensions = ["jpg", "jpeg", "png", "gif", "bmp", "webp"];
-  const documentExtensions = ["pdf", "doc", "docx", "txt"];
 
   if (imageExtensions.includes(extension)) {
     return "image";
-  } else if (documentExtensions.includes(extension)) {
+  } else if (extension === "pdf") {
+    return "pdf";
+  } else if (["doc", "docx", "txt", "xls", "xlsx"].includes(extension)) {
     return "document";
   }
   return "other";
 };
 
-// Fayl preview uchun
-const handlePreview = async (file) => {
-  const fileType = getFileType(file.name);
+const uploadFileToServer = async (file) => {
+  const formData = new FormData();
+  formData.append("file", file);
 
-  if (fileType === "image") {
-    previewImage.value = file.url || file.thumbUrl;
-    previewVisible.value = true;
-    previewTitle.value = file.name;
-  } else {
-    // Boshqa fayl turlari uchun download
-    if (file.url) {
-      const link = document.createElement("a");
-      link.href = file.url;
-      link.download = file.name;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+  try {
+    const response = await $post(`/File/Upload`, formData);
+
+    if (response) {
+      return response.content;
     } else {
-      message.info(`${file.name} faylini yuklab olish uchun saqlang`);
+      throw new Error("Fayl yuklanmadi");
+    }
+  } catch (error) {
+    console.error("Faylni yuklashda xatolik:", error);
+    throw error;
+  }
+};
+
+const handleBeforeUpload = async (file) => {
+  const isValidType =
+    file.type.startsWith("image/") ||
+    file.type === "application/pdf" ||
+    file.type === "application/msword" ||
+    file.type ===
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+    file.type === "application/vnd.ms-excel" ||
+    file.type ===
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+    file.type === "text/plain";
+
+  if (!isValidType) {
+    message.error("Faqat rasm, PDF, Word va Excel fayllarni yuklash mumkin!");
+    return false;
+  }
+
+  const isLt10M = file.size / 1024 / 1024 < 10;
+  if (!isLt10M) {
+    message.error("Fayl hajmi 10MB dan kichik bo'lishi kerak!");
+    return false;
+  }
+
+  return false;
+};
+
+const handleUploadChange = async (info) => {
+  const { file } = info;
+
+  if (file.status !== "removed") {
+    const existingFile = uploadFileList.value.find((f) => f.uid === file.uid);
+    if (!existingFile) {
+      uploadFileList.value.push({
+        uid: file.uid,
+        name: file.name,
+        status: "uploading",
+        originFileObj: file.originFileObj || file,
+      });
     }
   }
 };
 
-const handleUploadChange = (info) => {
-  let fileList = [...info.fileList];
+const handlePreview = async (file) => {
+  const fileType = getFileType(file.name);
 
-  // Har bir fayl uchun preview yaratish
-  fileList = fileList.map((file) => {
-    if (file.originFileObj) {
-      const fileType = getFileType(file.name);
-
-      if (fileType === "image" && !file.url && !file.preview) {
-        file.url = URL.createObjectURL(file.originFileObj);
-      }
-
-      // Base64 formatda saqlash uchun FileReader ishlatish
-      if (!file.base64 && file.originFileObj) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          file.base64 = e.target.result;
-          file.url = e.target.result;
-        };
-        reader.readAsDataURL(file.originFileObj);
-      }
+  if (fileType === "image") {
+    if (file.url) {
+      previewImage.value = `${BASE_URL}/${file.url}`;
+    } else if (file.originFileObj) {
+      previewImage.value = await getBase64(file.originFileObj);
+    } else if (file.thumbUrl) {
+      previewImage.value = file.thumbUrl;
     }
-    return file;
-  });
+    previewVisible.value = true;
+    previewTitle.value = file.name;
+  } else if (fileType === "pdf") {
+    if (file.url) {
+      previewImage.value = `${BASE_URL}/${file.url}`;
+      previewVisible.value = true;
+      previewTitle.value = file.name;
+    } else {
+      message.info(`${file.name} faylini yuklab olish uchun saqlang`);
+    }
+  } else {
+    message.info(`${file.name} faylini ko'rish uchun yuklab oling`);
+  }
+};
 
-  uploadFileList.value = fileList;
+const getBase64 = (file) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = (error) => reject(error);
+  });
+};
+
+const handleDownload = (file) => {
+  if (file.url) {
+    window.open(`${BASE_URL}/${file.url}`, "_blank");
+  } else {
+    message.info("Fayl hali yuklanmagan");
+  }
 };
 
 const editNote = (note) => {
   editingNote.value = note;
   formState.patientId = note.patientId;
-  formState.type = note.type;
   formState.title = note.title;
-  formState.content = note.content;
-  formState.dateTime = note.dateTime
-    ? dayjs(note.dateTime, "YYYY-MM-DD")
-    : null;
-  formState.attachments = [...(note.attachments || [])];
+  formState.description = note.description;
+  formState.noteDate = note.noteDate ? dayjs(note.noteDate) : null;
+  formState.files = note.files || "";
 
-  // Upload file list ni to'g'ri formatga keltirish
-  uploadFileList.value = (note.attachments || []).map((attachment, index) => {
-    if (typeof attachment === "string") {
-      // Eski format - faqat fayl nomi
-      return {
-        uid: `existing-${index}`,
-        name: attachment,
-        status: "done",
-        url: attachment,
-      };
-    } else {
-      // Yangi format - to'liq fayl ma'lumoti
-      return {
-        uid: attachment.uid || `existing-${index}`,
-        name: attachment.name,
-        status: "done",
-        url: attachment.url,
-        type: attachment.type,
-      };
-    }
-  });
-
+  uploadFileList.value = note.attachments || [];
   modalOpen.value = true;
 };
 
-const deleteNote = (noteId) => {
-  notes.value = notes.value.filter((note) => note.id !== noteId);
-  message.success("Eslatma muvaffaqiyatli o'chirildi!");
+const deleteNote = async (noteId) => {
+  try {
+    await $delete(`/Note/Remove?id=${noteId}`);
+    message.success("Eslatma muvaffaqiyatli o'chirildi!");
+    await loadNotes(selectedPatient.value.id);
+  } catch (error) {
+    message.error("Eslatmani o'chirishda xatolik yuz berdi");
+    console.error(error);
+  }
 };
 
-const handleOk = () => {
+const handleOk = async () => {
   if (
     !formState.patientId ||
-    !formState.type ||
     !formState.title ||
-    !formState.content ||
-    !formState.dateTime
+    !formState.description ||
+    !formState.noteDate
   ) {
     message.error("Iltimos, barcha majburiy maydonlarni to'ldiring!");
     return;
   }
 
   confirmLoading.value = true;
+  uploadingFiles.value = true;
 
-  setTimeout(() => {
-    // Fayllarni to'g'ri formatda saqlash
-    const attachments = uploadFileList.value.map((file) => ({
-      uid: file.uid,
-      name: file.name,
-      status: file.status,
-      url: file.url || file.base64,
-      type: file.type || file.originFileObj?.type,
-    }));
+  try {
+    const uploadedFiles = [];
 
-    const formattedDate = formState.dateTime
-      ? formState.dateTime.format("YYYY-MM-DD")
-      : "";
+    for (const file of uploadFileList.value) {
+      if (file.originFileObj && file.status !== "done") {
+        try {
+          const serverPath = await uploadFileToServer(file.originFileObj);
+          uploadedFiles.push({
+            ...file,
+            fullPath: serverPath,
+            status: "done",
+            url: serverPath,
+          });
+        } catch (error) {
+          message.error(`${file.name} yuklanmadi`);
+          console.error(error);
+        }
+      } else if (file.fullPath || file.url) {
+        uploadedFiles.push(file);
+      }
+    }
+
+    uploadFileList.value = uploadedFiles;
+    const filesString = stringifyFiles(uploadedFiles);
+
+    const noteData = {
+      id: editingNote.value?.id,
+      patientId: formState.patientId,
+      title: formState.title,
+      description: formState.description,
+      noteDate: formState.noteDate.toISOString(),
+      files: filesString,
+      createdAt: editingNote.value?.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
 
     if (editingNote.value) {
-      const index = notes.value.findIndex(
-        (note) => note.id === editingNote.value.id
-      );
-      if (index !== -1) {
-        notes.value[index] = {
-          ...notes.value[index],
-          patientId: formState.patientId,
-          type: formState.type,
-          title: formState.title,
-          content: formState.content,
-          dateTime: formattedDate,
-          attachments: attachments,
-        };
-        message.success("Eslatma muvaffaqiyatli yangilandi!");
-      }
+      await $put(`/Note/Update`, noteData);
+      message.success("Eslatma muvaffaqiyatli yangilandi!");
     } else {
-      const newNote = {
-        id: Math.max(0, ...notes.value.map((item) => item.id)) + 1,
-        patientId: formState.patientId,
-        type: formState.type,
-        title: formState.title,
-        content: formState.content,
-        dateTime: formattedDate,
-        attachments: attachments,
-        status: "active",
-      };
-      notes.value.push(newNote);
+      await $post("/Note/Add", noteData);
       message.success("Yangi eslatma muvaffaqiyatli qo'shildi!");
-
-      // Tanlangan bemorni active holatda saqlash
-      selectedPatient.value =
-        patients.value.find((patient) => patient.id === formState.patientId) ||
-        patients.value[0] ||
-        null;
     }
-    confirmLoading.value = false;
+
+    await loadNotes(selectedPatient.value.id);
     modalOpen.value = false;
-  }, 1000);
+  } catch (error) {
+    message.error("Xatolik yuz berdi");
+    console.error(error);
+  } finally {
+    confirmLoading.value = false;
+    uploadingFiles.value = false;
+  }
+};
+
+const handleHistoryOk = async () => {
+  if (!historyFormState.patientId) {
+    message.error("Bemor tanlanmagan!");
+    return;
+  }
+
+  confirmLoading.value = true;
+
+  try {
+    const historyData = {
+      id: medicalHistory.value?.id,
+      patientId: historyFormState.patientId,
+      allergies: historyFormState.allergies,
+      chronicDiseases: historyFormState.chronicDiseases,
+      dentalHistory: historyFormState.dentalHistory,
+      currentMedications: historyFormState.currentMedications,
+      surgeries: historyFormState.surgeries,
+      otherNotes: historyFormState.otherNotes,
+      createdAt: medicalHistory.value?.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    if (medicalHistory.value) {
+      await $put(`/MedicalHistory/Update`, historyData);
+      message.success("Tibbiy tarix muvaffaqiyatli yangilandi!");
+    } else {
+      await $post("/MedicalHistory/Add", historyData);
+      message.success("Tibbiy tarix muvaffaqiyatli qo'shildi!");
+    }
+
+    await loadMedicalHistory(selectedPatient.value.id);
+    historyModalOpen.value = false;
+  } catch (error) {
+    message.error("Xatolik yuz berdi");
+    console.error(error);
+  } finally {
+    confirmLoading.value = false;
+  }
 };
 
 const resetForm = () => {
   formState.patientId = selectedPatient.value ? selectedPatient.value.id : null;
-  formState.type = "Davolash";
   formState.title = "";
-  formState.content = "";
-  formState.dateTime = null;
-  formState.attachments = [];
+  formState.description = "";
+  formState.noteDate = null;
+  formState.files = "";
   uploadFileList.value = [];
-};
-
-const getNoteTypeColor = (type) => {
-  const noteType = noteTypes.find((t) => t.value === type);
-  return noteType ? noteType.color : "#1890ff";
 };
 
 const formatDateTime = (dateTime) => {
   if (!dateTime) return "";
-  return dayjs(dateTime, "YYYY-MM-DD").locale("uz").format("DD.MM.YYYY");
+  return dayjs(dateTime).locale("uz").format("DD.MM.YYYY");
 };
 
 const handleRemoveAttachment = (file) => {
@@ -352,214 +480,332 @@ const handleRemoveAttachment = (file) => {
 
 const clearSearch = () => {
   searchQuery.value = "";
-  selectedPatient.value = patients.value[0] || null;
+  if (patients.value.length > 0) {
+    selectedPatient.value = patients.value[0];
+    loadNotes(patients.value[0].id);
+    loadMedicalHistory(patients.value[0].id);
+  }
 };
 
 const disabledDate = (current) => {
-  return current && current < dayjs().startOf("day");
+  return current && current > dayjs().endOf("day");
 };
 
 watch(searchQuery, (newVal) => {
-  if (!newVal) {
-    selectedPatient.value = patients.value[0] || null;
+  if (!newVal && patients.value.length > 0) {
+    selectedPatient.value = patients.value[0];
+    loadNotes(patients.value[0].id);
+    loadMedicalHistory(patients.value[0].id);
   }
 });
 
 onMounted(() => {
   dayjs.locale("uz");
+  loadPatients();
 });
 </script>
 
 <template>
   <div>
-    <div v-if="patients.length === 0" class="text-center py-8 text-gray-500">
-      <AlertOutlined class="text-2xl mb-2 mx-auto" />
-      <p>Avval bemor qo'shing</p>
-    </div>
-    <div v-else class="mb-4 sm:mb-6">
-      <a-input
-        v-model:value="searchQuery"
-        placeholder="Bemor ism-sharifi bo'yicha qidiruv..."
-        class="mb-4 w-full"
-      >
-        <template #prefix>
-          <SearchOutlined class="text-gray-400" />
-        </template>
-        <template #suffix v-if="searchQuery">
-          <a-button type="text" size="small" @click="clearSearch">
-            <CloseOutlined />
-          </a-button>
-        </template>
-      </a-input>
-      <div
-        class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-64 sm:max-h-96 overflow-y-auto"
-      >
-        <div
-          v-for="patient in filteredPatients"
-          :key="patient.id"
-          @click="selectPatient(patient)"
-          :class="[
-            'p-3 border rounded-lg cursor-pointer transition-all duration-200 flex items-center',
-            selectedPatient?.id === patient.id
-              ? 'border-blue-500 bg-blue-50 shadow-md'
-              : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50',
-          ]"
+    <a-spin :spinning="loading">
+      <div v-if="patients.length === 0" class="text-center py-8 text-gray-500">
+        <AlertOutlined class="text-2xl mb-2 mx-auto" />
+        <p>Avval bemor qo'shing</p>
+      </div>
+      <div v-else class="mb-4 sm:mb-6">
+        <a-input
+          v-model:value="searchQuery"
+          placeholder="Bemor ism-sharifi bo'yicha qidiruv..."
+          class="mb-4 w-full"
         >
-          <a-avatar size="small" class="bg-blue-500 flex-shrink-0">
-            <template #icon><UserOutlined /></template>
-          </a-avatar>
-          <div class="font-medium text-sm ml-3 truncate">
-            {{ patient.fullName }}
+          <template #prefix>
+            <SearchOutlined class="text-gray-400" />
+          </template>
+          <template #suffix v-if="searchQuery">
+            <a-button type="text" size="small" @click="clearSearch">
+              <CloseOutlined />
+            </a-button>
+          </template>
+        </a-input>
+        <div
+          class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-64 sm:max-h-96 overflow-y-auto"
+        >
+          <div
+            v-for="patient in filteredPatients"
+            :key="patient.id"
+            @click="selectPatient(patient)"
+            :class="[
+              'p-3 border rounded-lg cursor-pointer transition-all duration-200 flex items-center',
+              selectedPatient?.id === patient.id
+                ? 'border-blue-500 bg-blue-50 shadow-md'
+                : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50',
+            ]"
+          >
+            <a-avatar size="small" class="bg-blue-500 flex-shrink-0">
+              <template #icon><UserOutlined /></template>
+            </a-avatar>
+            <div class="font-medium text-sm ml-3 truncate">
+              {{ patient.firstName }} {{ patient.lastName }}
+            </div>
           </div>
         </div>
-      </div>
-      <div
-        v-if="filteredPatients.length === 0"
-        class="text-center py-4 text-gray-500"
-      >
-        Hech qanday bemor topilmadi
-      </div>
-    </div>
-
-    <!-- Eslatmalar qismi -->
-    <div
-      v-if="selectedPatient"
-      class="bg-white rounded-lg border border-gray-200"
-    >
-      <div
-        class="flex flex-col sm:flex-row justify-between items-start sm:items-center pt-4 px-4"
-      >
-        <h2
-          class="text-base lg:text-lg font-semibold text-gray-800 mb-2 md:!mb-0"
-        >
-          {{ selectedPatient.fullName }} uchun eslatmalar
-        </h2>
-        <a-button @click="showModal" type="primary" class="w-full sm:w-auto">
-          + Yangi eslatma qo'shish
-        </a-button>
-      </div>
-
-      <!-- Eslatmalar ro'yxati -->
-      <div class="p-4 space-y-4">
         <div
-          v-for="note in filteredNotes"
-          :key="note.id"
-          class="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 hover:border-blue-500 transition-all duration-200"
+          v-if="filteredPatients.length === 0"
+          class="text-center py-4 text-gray-500"
         >
-          <div
-            class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 gap-2"
-          >
-            <div class="flex flex-wrap items-center gap-2">
-              <a-tag :color="getNoteTypeColor(note.type)" class="mb-0">
-                {{ note.type }}
-              </a-tag>
-              <h3 class="font-semibold text-base sm:text-lg">
-                {{ note.title }}
-              </h3>
-            </div>
-            <div class="flex gap-1 sm:gap-2">
-              <a-button
-                size="small"
-                type="text"
-                @click="editNote(note)"
-                class="text-blue-600 hover:text-blue-800"
-              >
-                <template #icon><EditOutlined /></template>
-              </a-button>
-              <a-popconfirm
-                title="Rostdan o'chirmoqchimisiz?"
-                ok-text="Ha"
-                cancel-text="Yo'q"
-                @confirm="deleteNote(note.id)"
-              >
-                <a-button
-                  size="small"
-                  type="text"
-                  danger
-                  class="text-red-600 hover:text-red-800"
-                >
-                  <template #icon><DeleteOutlined /></template>
-                </a-button>
-              </a-popconfirm>
-            </div>
-          </div>
+          Hech qanday bemor topilmadi
+        </div>
+      </div>
 
-          <div
-            class="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 mb-3 text-sm text-gray-600"
-          >
-            <div class="flex items-center gap-1">
-              <CalendarOutlined />
-              <span>{{ formatDateTime(note.dateTime) }}</span>
-            </div>
-          </div>
+      <!-- Tabs -->
+      <div
+        v-if="selectedPatient"
+        class="bg-white rounded-lg border border-gray-200 px-4 py-2"
+      >
+        <a-tabs v-model:activeKey="activeTab" class="px-4">
+          <a-tab-pane key="notes">
+            <template #tab>
+              <span class="flex items-center">
+                <FileTextOutlined class="!mr-2" />
+                Eslatmalar
+              </span>
+            </template>
 
-          <p class="text-gray-700 mb-3 leading-relaxed text-sm sm:text-base">
-            {{ note.content }}
-          </p>
-
-          <!-- Qo'shimcha fayllar -->
-          <div
-            v-if="note.attachments && note.attachments.length > 0"
-            class="mt-3"
-          >
-            <div class="text-sm font-medium text-gray-600 mb-2">
-              Qo'shimcha fayllar:
-            </div>
-            <div class="flex flex-wrap gap-2">
+            <div class="pb-4">
               <div
-                @click="handlePreview(attachment)"
-                v-for="attachment in note.attachments"
-                :key="attachment.uid || attachment"
-                class="flex items-center gap-4 bg-gray-100 px-3 py-1 rounded-lg hover:bg-gray-200 transition-colors cursor-pointer"
+                class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2"
               >
-                <span class="flex items-center gap-1 text-sm truncate max-w-xs">
-                  <FileOutlined
-                    :class="
-                      getFileType(attachment.name || attachment) === 'image'
-                        ? 'text-green-600'
-                        : 'text-blue-600'
-                    "
-                  />
-                  {{
-                    typeof attachment === "string"
-                      ? attachment
-                      : attachment.name
-                  }}
-                </span>
-                <div class="flex">
-                  <EyeOutlined
-                    @click="
-                      handlePreview(
-                        typeof attachment === 'string'
-                          ? { name: attachment, url: attachment }
-                          : attachment
-                      )
-                    "
-                    class="text-xs"
-                  />
-                </div>
+                <h2
+                  class="text-base lg:text-lg font-semibold text-gray-800 mb-2 md:!mb-0"
+                >
+                  {{ selectedPatient.firstName }}
+                  {{ selectedPatient.lastName }} uchun eslatmalar
+                </h2>
+                <a-button
+                  @click="showModal"
+                  type="primary"
+                  class="w-full sm:w-auto"
+                >
+                  + Yangi eslatma qo'shish
+                </a-button>
               </div>
-            </div>
-          </div>
-        </div>
 
-        <div
-          v-if="filteredNotes.length === 0"
-          class="text-center py-8 text-gray-500"
-        >
-          <AlertOutlined class="text-2xl mb-2 mx-auto" />
-          <p>Hali eslatmalar yo'q</p>
-        </div>
+              <a-spin :spinning="notesLoading">
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                  <div
+                    v-for="note in filteredNotes"
+                    :key="note.id"
+                    class="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 hover:border-blue-500 transition-all duration-200"
+                  >
+                    <div
+                      class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2 gap-2"
+                    >
+                      <h3 class="font-semibold text-base sm:text-lg">
+                        {{ note.title }}
+                      </h3>
+                      <div class="flex gap-1 sm:gap-2">
+                        <a-button
+                          size="small"
+                          type="text"
+                          @click="editNote(note)"
+                          class="text-blue-600 hover:text-blue-800"
+                        >
+                          <template #icon><EditOutlined /></template>
+                        </a-button>
+                        <a-popconfirm
+                          title="Rostdan o'chirmoqchimisiz?"
+                          ok-text="Ha"
+                          cancel-text="Yo'q"
+                          @confirm="deleteNote(note.id)"
+                        >
+                          <a-button
+                            size="small"
+                            type="text"
+                            danger
+                            class="text-red-600 hover:text-red-800"
+                          >
+                            <template #icon><DeleteOutlined /></template>
+                          </a-button>
+                        </a-popconfirm>
+                      </div>
+                    </div>
+
+                    <div
+                      class="flex items-center gap-1 mb-2 text-sm text-gray-600"
+                    >
+                      <CalendarOutlined />
+                      <span>{{ formatDateTime(note.noteDate) }}</span>
+                    </div>
+
+                    <p
+                      class="text-gray-700m !mb-0 leading-relaxed text-sm sm:text-base"
+                    >
+                      {{ note.description }}
+                    </p>
+
+                    <div
+                      v-if="note.attachments && note.attachments.length > 0"
+                      class="mt-3"
+                    >
+                      <div class="text-sm font-medium text-gray-600 mb-2">
+                        Qo'shimcha fayllar:
+                      </div>
+                      <div class="flex flex-wrap gap-2">
+                        <div
+                          v-for="attachment in note.attachments"
+                          :key="attachment.uid"
+                          class="flex items-center gap-2 bg-gray-100 px-3 py-1 rounded-lg hover:bg-gray-200 transition-colors"
+                        >
+                          <FileOutlined
+                            :class="
+                              getFileType(attachment.name) === 'image'
+                                ? 'text-green-600'
+                                : getFileType(attachment.name) === 'pdf'
+                                ? 'text-red-600'
+                                : 'text-blue-600'
+                            "
+                          />
+                          <span class="text-sm truncate max-w-[150px]">{{
+                            attachment.name
+                          }}</span>
+                          <div class="flex gap-1">
+                            <a-button
+                              v-if="
+                                getFileType(attachment.name) === 'image' ||
+                                getFileType(attachment.name) === 'pdf'
+                              "
+                              type="text"
+                              size="small"
+                              @click="handlePreview(attachment)"
+                              class="!p-0 !h-auto"
+                            >
+                              <EyeOutlined class="mb-1 !text-sm" />
+                            </a-button>
+                            <a-button
+                              type="text"
+                              size="small"
+                              @click="handleDownload(attachment)"
+                              class="!p-0 !h-auto"
+                            >
+                              <DownloadOutlined class="mb-1 !text-sm" />
+                            </a-button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    v-if="filteredNotes.length === 0"
+                    class="text-center py-8 text-gray-500"
+                  >
+                    <AlertOutlined class="text-2xl mb-2 mx-auto" />
+                    <p>Hali eslatmalar yo'q</p>
+                  </div>
+                </div>
+              </a-spin>
+            </div>
+          </a-tab-pane>
+
+          <a-tab-pane key="history">
+            <template #tab>
+              <span class="flex items-center">
+                <MedicineBoxOutlined class="!mr-2" />
+                Tibbiy Tarix
+              </span>
+            </template>
+
+            <div class="pb-4">
+              <div
+                class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2"
+              >
+                <h2
+                  class="text-base lg:text-lg font-semibold text-gray-800 mb-2 md:!mb-0"
+                >
+                  {{ selectedPatient.firstName }}
+                  {{ selectedPatient.lastName }} - Tibbiy Tarix
+                </h2>
+                <a-button
+                  @click="showHistoryModal"
+                  type="primary"
+                  class="w-full sm:w-auto"
+                >
+                  {{
+                    medicalHistory ? "Tahrirlash" : "+ Tibbiy Tarix Qo'shish"
+                  }}
+                </a-button>
+              </div>
+
+              <a-spin :spinning="historyLoading">
+                <div
+                  v-if="medicalHistory"
+                  class="bg-white rounded-lg border border-gray-200 p-4 space-y-4"
+                >
+                  <div v-if="medicalHistory.allergies">
+                    <h4 class="font-semibold text-gray-700 mb-2">
+                      Allergiyalar
+                    </h4>
+                    <p class="text-gray-600">{{ medicalHistory.allergies }}</p>
+                  </div>
+
+                  <div v-if="medicalHistory.chronicDiseases">
+                    <h4 class="font-semibold text-gray-700 mb-2">
+                      Surunkali Kasalliklar
+                    </h4>
+                    <p class="text-gray-600">
+                      {{ medicalHistory.chronicDiseases }}
+                    </p>
+                  </div>
+
+                  <div v-if="medicalHistory.dentalHistory">
+                    <h4 class="font-semibold text-gray-700 mb-2">
+                      Stomatologik Tarix
+                    </h4>
+                    <p class="text-gray-600">
+                      {{ medicalHistory.dentalHistory }}
+                    </p>
+                  </div>
+
+                  <div v-if="medicalHistory.currentMedications">
+                    <h4 class="font-semibold text-gray-700 mb-2">
+                      Hozirgi Dorilar
+                    </h4>
+                    <p class="text-gray-600">
+                      {{ medicalHistory.currentMedications }}
+                    </p>
+                  </div>
+
+                  <div v-if="medicalHistory.surgeries">
+                    <h4 class="font-semibold text-gray-700 mb-2">
+                      Operatsiyalar
+                    </h4>
+                    <p class="text-gray-600">{{ medicalHistory.surgeries }}</p>
+                  </div>
+
+                  <div v-if="medicalHistory.otherNotes">
+                    <h4 class="font-semibold text-gray-700 mb-2">
+                      Boshqa Eslatmalar
+                    </h4>
+                    <p class="text-gray-600">{{ medicalHistory.otherNotes }}</p>
+                  </div>
+                </div>
+
+                <div v-else class="text-center py-8 text-gray-500">
+                  <MedicineBoxOutlined class="text-2xl mb-2 mx-auto" />
+                  <p>Tibbiy tarix mavjud emas</p>
+                </div>
+              </a-spin>
+            </div>
+          </a-tab-pane>
+        </a-tabs>
       </div>
-    </div>
+    </a-spin>
 
     <!-- Eslatma modali -->
     <a-modal
       v-model:open="modalOpen"
       :width="768"
-      :title="
-        editingNote ? 'Eslatmani tahrirlash' : 'Yangi eslatma qo\u0027shish'
-      "
+      :title="editingNote ? 'Eslatmani tahrirlash' : 'Yangi eslatma qo\'shish'"
       :confirm-loading="confirmLoading"
       @ok="handleOk"
       @cancel="modalOpen = false"
@@ -576,24 +822,7 @@ onMounted(() => {
               :key="patient.id"
               :value="patient.id"
             >
-              {{ patient.fullName }} ({{ patient.code }})
-            </a-select-option>
-          </a-select>
-        </a-form-item>
-
-        <a-form-item label="Eslatma turi" required>
-          <a-select
-            v-model:value="formState.type"
-            placeholder="Turini tanlang"
-            allow-clear
-            show-search
-          >
-            <a-select-option
-              v-for="type in noteTypes"
-              :key="type.value"
-              :value="type.value"
-            >
-              {{ type.label }}
+              {{ patient.firstName }} {{ patient.lastName }}
             </a-select-option>
           </a-select>
         </a-form-item>
@@ -607,7 +836,7 @@ onMounted(() => {
 
         <a-form-item label="Mazmuni" required>
           <a-textarea
-            v-model:value="formState.content"
+            v-model:value="formState.description"
             placeholder="Eslatma mazmunini kiriting"
             :rows="4"
           />
@@ -615,7 +844,7 @@ onMounted(() => {
 
         <a-form-item label="Eslatma sanasi" required>
           <a-date-picker
-            v-model:value="formState.dateTime"
+            v-model:value="formState.noteDate"
             format="DD.MM.YYYY"
             placeholder="Sanani tanlang"
             style="width: 100%"
@@ -633,46 +862,137 @@ onMounted(() => {
               showRemoveIcon: true,
               showDownloadIcon: false,
             }"
-            :before-upload="() => false"
+            :before-upload="handleBeforeUpload"
             @change="handleUploadChange"
             @preview="handlePreview"
             @remove="handleRemoveAttachment"
-            accept="image/*,.pdf,.doc,.docx,.txt"
+            accept="image/*,.pdf,.doc,.docx,.txt,.xls,.xlsx"
           >
-            <a-button class="w-full" type="dashed">
-              + Fayl yuklash (rasm, PDF, DOC va boshqalar)
+            <a-button class="w-full" type="dashed" :loading="uploadingFiles">
+              {{
+                uploadingFiles
+                  ? "Yuklanmoqda..."
+                  : "+ Fayl qo'shish (rasm, pdf, doc, xlsx)"
+              }}
             </a-button>
           </a-upload>
+          <div class="text-xs text-gray-500 mt-2">
+            Maksimal fayl hajmi: 10MB. Ruxsat etilgan formatlar: JPG, PNG, PDF,
+            DOC, DOCX, XLS, XLSX, TXT
+          </div>
         </a-form-item>
       </a-form>
 
       <template #footer>
-        <a-button @click="modalOpen = false"> Bekor qilish </a-button>
+        <a-button @click="modalOpen = false">Bekor qilish</a-button>
         <a-button type="primary" :loading="confirmLoading" @click="handleOk">
           {{ editingNote ? "Yangilash" : "Qo'shish" }}
         </a-button>
       </template>
     </a-modal>
 
-    <!-- Rasm preview modal -->
+    <!-- Tibbiy Tarix Modali -->
+    <a-modal
+      v-model:open="historyModalOpen"
+      :width="768"
+      :title="
+        medicalHistory ? 'Tibbiy Tarixni Tahrirlash' : 'Tibbiy Tarix Qo\'shish'
+      "
+      :confirm-loading="confirmLoading"
+      @ok="handleHistoryOk"
+      @cancel="historyModalOpen = false"
+    >
+      <a-form layout="vertical" class="mt-4">
+        <a-form-item label="Allergiyalar">
+          <a-textarea
+            v-model:value="historyFormState.allergies"
+            placeholder="Allergiyalar haqida ma'lumot kiriting"
+            :rows="2"
+          />
+        </a-form-item>
+
+        <a-form-item label="Surunkali Kasalliklar">
+          <a-textarea
+            v-model:value="historyFormState.chronicDiseases"
+            placeholder="Surunkali kasalliklar haqida ma'lumot kiriting"
+            :rows="2"
+          />
+        </a-form-item>
+
+        <a-form-item label="Stomatologik Tarix">
+          <a-textarea
+            v-model:value="historyFormState.dentalHistory"
+            placeholder="Stomatologik tarix haqida ma'lumot kiriting"
+            :rows="2"
+          />
+        </a-form-item>
+
+        <a-form-item label="Hozirgi Dorilar">
+          <a-textarea
+            v-model:value="historyFormState.currentMedications"
+            placeholder="Hozirda qabul qilinayotgan dorilar"
+            :rows="2"
+          />
+        </a-form-item>
+
+        <a-form-item label="Operatsiyalar">
+          <a-textarea
+            v-model:value="historyFormState.surgeries"
+            placeholder="O'tkazilgan operatsiyalar haqida ma'lumot"
+            :rows="2"
+          />
+        </a-form-item>
+
+        <a-form-item label="Boshqa Eslatmalar">
+          <a-textarea
+            v-model:value="historyFormState.otherNotes"
+            placeholder="Qo'shimcha eslatmalar"
+            :rows="2"
+          />
+        </a-form-item>
+      </a-form>
+
+      <template #footer>
+        <a-button @click="historyModalOpen = false">Bekor qilish</a-button>
+        <a-button
+          type="primary"
+          :loading="confirmLoading"
+          @click="handleHistoryOk"
+        >
+          {{ medicalHistory ? "Yangilash" : "Qo'shish" }}
+        </a-button>
+      </template>
+    </a-modal>
+
+    <!-- Rasm va PDF preview modal -->
     <a-modal
       v-model:open="previewVisible"
       :title="previewTitle"
       :footer="null"
       centered
       :z-index="2000"
-      :mask-style="{ zIndex: 1999 }"
-      :wrap-style="{ zIndex: 2000 }"
+      width="1000px"
     >
-      <img alt="preview" style="width: 100%" :src="previewImage" />
+      <div v-if="getFileType(previewTitle) === 'image'">
+        <img alt="preview" style="width: 100%" :src="previewImage" />
+      </div>
+      <div v-else-if="getFileType(previewTitle) === 'pdf'" style="height: 70vh">
+        <iframe
+          :src="previewImage"
+          style="width: 100%; height: 100%; border: none"
+          frameborder="0"
+        ></iframe>
+      </div>
     </a-modal>
   </div>
 </template>
 
 <style scoped>
-h3 {
+h3,
+h4 {
   margin-bottom: 0 !important;
 }
+
 :deep(.ant-form-item) {
   margin-bottom: 16px !important;
 }
@@ -682,18 +1002,12 @@ h3 {
   font-weight: 500;
 }
 
-:deep(.ant-tag) {
-  margin-bottom: 0;
+:deep(.ant-tabs-nav) {
+  margin-bottom: 0 !important;
 }
 
-:deep(.ant-upload-list-item-thumbnail) {
-  width: 48px !important;
-  height: 48px !important;
-  line-height: 54px !important;
-}
-
-:deep(.ant-upload-list-item-name) {
-  padding-left: 8px !important;
+:deep(.ant-tabs-content-holder) {
+  padding-top: 16px;
 }
 
 .font {

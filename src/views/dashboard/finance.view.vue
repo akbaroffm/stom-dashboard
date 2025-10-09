@@ -9,16 +9,13 @@ const { $get } = useFetch();
 
 const stats = ref({});
 const loading = ref(false);
-const windowWidth = ref(
-  typeof window !== "undefined" ? window.innerWidth : 1024
-);
+
 const popupStyle = computed(() => {
   if (window.innerWidth < 640) {
     return { width: "100%" };
   }
   return {};
 });
-const isMobile = computed(() => windowWidth.value < 769);
 
 // Date range state
 const dateRange = ref([dayjs().startOf("day"), dayjs().endOf("day")]);
@@ -220,7 +217,6 @@ onMounted(async () => {
           :presets="rangePresets"
           format="DD.MM.YYYY"
           :placeholder="['Boshlanish sanasi', 'Tugash sanasi']"
-          size="large"
           :get-popup-container="(trigger) => trigger.parentNode"
           :popup-style="popupStyle"
         />

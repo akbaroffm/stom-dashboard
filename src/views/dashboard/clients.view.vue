@@ -81,7 +81,7 @@ const fetchPatients = async () => {
   try {
     loadingStore.startLoadingFn();
     const response = await $get("Patient/GetAllUsers?CanGetMyPatients=true");
-    clients.value = response.content.filter((user) => user.roleId === 2);
+    clients.value = response.filter((user) => user.roleId === 2);
   } catch (error) {
     message.error("Mijozlar ro'yxatini olishda xatolik yuz berdi!", 5);
   } finally {
