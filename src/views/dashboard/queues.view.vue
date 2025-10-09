@@ -432,11 +432,11 @@ watch(
 
     <a-spin :spinning="loading">
       <div
-        class="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 xl:gap-6 gap-4 h-[300px]"
+        class="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 xl:gap-6 gap-4 h-[400px]"
       >
         <!-- Kutilmoqda -->
         <div
-          class="bg-[#F3F4F6] rounded-lg p-4 h-150 overflow-auto"
+          class="bg-[#F3F4F6] rounded-lg p-4"
           :class="{ 'drag-target': !isMobile }"
           @dragover="onDragOver"
           @drop="() => onDrop('waiting')"
