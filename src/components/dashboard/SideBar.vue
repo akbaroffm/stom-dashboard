@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch } from "vue";
+import { ref, watch, onMounted, onBeforeUnmount } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { Menu } from "ant-design-vue";
 import * as Icons from "@ant-design/icons-vue";
@@ -18,6 +18,21 @@ const emit = defineEmits(["menu-item-click"]);
 const dashboardRoutes =
   router.getRoutes().find((r) => r.name === "dashboard-layout")?.children || [];
 
+const isMobile = ref(false);
+
+const handleResize = () => {
+  isMobile.value = window.innerWidth < 769;
+};
+
+onMounted(() => {
+  handleResize(); // sahifa yuklanganda ham tekshir
+  window.addEventListener("resize", handleResize);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener("resize", handleResize);
+});
+
 watch(
   () => route.path,
   (newPath) => {
@@ -34,14 +49,14 @@ watch(
 
 const handleMenuClick = ({ key }) => {
   router.push(key);
-
   emit("menu-item-click");
 };
 </script>
 
 <template>
   <div class="flex flex-col bg-white">
-    <div class="flex items-center justify-center pt-3 pb-2">
+    <!-- logolar faqat desktopda -->
+    <div v-if="!isMobile" class="flex items-center justify-center pt-3 pb-2">
       <img
         v-if="!collapsed"
         src="@/assets/images/png/logo.png"
@@ -55,41 +70,41 @@ const handleMenuClick = ({ key }) => {
         class="!w-[100px] !h-[50px] !object-contain"
       />
     </div>
-    <div>
-      <Menu
-        mode="inline"
-        :inline-collapsed="collapsed"
-        :selected-keys="selectedKeys"
-        :open-keys="openKeys"
-        @click="handleMenuClick"
-      >
-        <template v-for="item in dashboardRoutes" :key="item.path">
-          <!-- Oddiy menu -->
-          <Menu.Item v-if="!item.children" :key="`/dashboard/${item.path}`">
-            <template #icon>
-              <component :is="Icons[item.meta?.icon]" />
-            </template>
-            {{ item.meta?.title }}
+
+    <Menu
+      mode="inline"
+      :inline-collapsed="collapsed"
+      :selected-keys="selectedKeys"
+      :open-keys="openKeys"
+      @click="handleMenuClick"
+      :class="isMobile ? '!pt-4' : '!pt-0'"
+    >
+      <template v-for="item in dashboardRoutes" :key="item.path">
+        <Menu.Item v-if="!item.children" :key="`/dashboard/${item.path}`">
+          <template #icon>
+            <component :is="Icons[item.meta?.icon]" />
+          </template>
+          {{ item.meta?.title }}
+        </Menu.Item>
+
+        <Menu.SubMenu v-else :key="item.path">
+          <template #icon>
+            <component :is="Icons[item.meta?.icon]" />
+          </template>
+          <template #title>{{ item.meta?.title }}</template>
+
+          <Menu.Item
+            v-for="child in item.children"
+            :key="`/dashboard/${item.path}/${child.path}`"
+          >
+            {{ child.meta?.title }}
           </Menu.Item>
-
-          <Menu.SubMenu v-else :key="item.path">
-            <template #icon>
-              <component :is="Icons[item.meta?.icon]" />
-            </template>
-            <template #title>{{ item.meta?.title }}</template>
-
-            <Menu.Item
-              v-for="child in item.children"
-              :key="`/dashboard/${item.path}/${child.path}`"
-            >
-              {{ child.meta?.title }}
-            </Menu.Item>
-          </Menu.SubMenu>
-        </template>
-      </Menu>
-    </div>
+        </Menu.SubMenu>
+      </template>
+    </Menu>
   </div>
 </template>
+
 <style scoped>
 :deep(.anticon) {
   font-size: 18px !important;

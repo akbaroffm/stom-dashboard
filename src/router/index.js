@@ -9,6 +9,10 @@ const router = createRouter({
     //   component: HomeView,
     // },
     {
+      path: "/dashboard",
+      redirect: "/dashboard/main",
+    },
+    {
       path: "/",
       name: "landing-layout",
       component: () => import("@/layouts/landing.layout.vue"),

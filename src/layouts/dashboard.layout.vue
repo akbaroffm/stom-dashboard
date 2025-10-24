@@ -162,8 +162,7 @@ const handleLogout = async () => {
       v-model:open="mobileMenuOpen"
       placement="left"
       :closable="true"
-      :width="280"
-      title="Menu"
+      :width="220"
       class="mobile-drawer"
       @close="closeMobileMenu"
     >
