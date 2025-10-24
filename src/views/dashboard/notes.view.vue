@@ -1,5 +1,5 @@
 <script setup>
-import { message } from "ant-design-vue";
+import { message } from 'ant-design-vue';
 import {
   EditOutlined,
   DeleteOutlined,
@@ -13,18 +13,18 @@ import {
   MedicineBoxOutlined,
   FileTextOutlined,
   DownloadOutlined,
-} from "@ant-design/icons-vue";
-import { reactive, ref, computed, watch, onMounted } from "vue";
-import dayjs from "dayjs";
-import "dayjs/locale/uz";
-import { useFetch } from "@/composable/useFetch";
+} from '@ant-design/icons-vue';
+import { reactive, ref, computed, watch, onMounted } from 'vue';
+import dayjs from 'dayjs';
+import 'dayjs/locale/uz';
+import { useFetch } from '@/composable/useFetch';
 
 const { $get, $delete, $post, $put } = useFetch();
 
-const activeTab = ref("notes");
+const activeTab = ref('notes');
 
 const patients = ref([]);
-const searchQuery = ref("");
+const searchQuery = ref('');
 const loading = ref(false);
 
 const filteredPatients = computed(() => {
@@ -53,34 +53,34 @@ const editingNote = ref(null);
 
 const formState = reactive({
   patientId: null,
-  title: "",
-  description: "",
+  title: '',
+  description: '',
   noteDate: null,
-  files: "",
+  files: '',
 });
 
 const historyFormState = reactive({
   patientId: null,
-  allergies: "",
-  chronicDiseases: "",
-  dentalHistory: "",
-  currentMedications: "",
-  surgeries: "",
-  otherNotes: "",
+  allergies: '',
+  chronicDiseases: '',
+  dentalHistory: '',
+  currentMedications: '',
+  surgeries: '',
+  otherNotes: '',
 });
 
 const uploadFileList = ref([]);
 const previewVisible = ref(false);
-const previewImage = ref("");
-const previewTitle = ref("");
+const previewImage = ref('');
+const previewTitle = ref('');
 const uploadingFiles = ref(false);
 
-const BASE_URL = "https://natalee-metapneustic-stanley.ngrok-free.dev/";
+const BASE_URL = 'http://95.182.119.19:5009/';
 
 const loadPatients = async () => {
   loading.value = true;
   try {
-    const response = await $get("/Patient/GetAllUsers?CanGetMyPatients=true");
+    const response = await $get('/Patient/GetAllUsers?CanGetMyPatients=true');
     if (response && Array.isArray(response)) {
       patients.value = response;
       if (patients.value.length > 0 && !selectedPatient.value) {
@@ -90,7 +90,7 @@ const loadPatients = async () => {
       }
     }
   } catch (error) {
-    message.error("Bemorlarni yuklashda xatolik yuz berdi");
+    message.error('Bemorlarni yuklashda xatolik yuz berdi');
     console.error(error);
   } finally {
     loading.value = false;
@@ -110,7 +110,7 @@ const loadNotes = async (patientId) => {
       }));
     }
   } catch (error) {
-    message.error("Eslatmalarni yuklashda xatolik yuz berdi");
+    message.error('Eslatmalarni yuklashda xatolik yuz berdi');
     console.error(error);
   } finally {
     notesLoading.value = false;
@@ -129,7 +129,7 @@ const loadMedicalHistory = async (patientId) => {
       medicalHistory.value = null;
     }
   } catch (error) {
-    message.error("Tibbiy tarixni yuklashda xatolik yuz berdi");
+    message.error('Tibbiy tarixni yuklashda xatolik yuz berdi');
     console.error(error);
   } finally {
     historyLoading.value = false;
@@ -158,22 +158,22 @@ const showModal = () => {
 const showHistoryModal = () => {
   if (medicalHistory.value) {
     historyFormState.patientId = medicalHistory.value.patientId;
-    historyFormState.allergies = medicalHistory.value.allergies || "";
+    historyFormState.allergies = medicalHistory.value.allergies || '';
     historyFormState.chronicDiseases =
-      medicalHistory.value.chronicDiseases || "";
-    historyFormState.dentalHistory = medicalHistory.value.dentalHistory || "";
+      medicalHistory.value.chronicDiseases || '';
+    historyFormState.dentalHistory = medicalHistory.value.dentalHistory || '';
     historyFormState.currentMedications =
-      medicalHistory.value.currentMedications || "";
-    historyFormState.surgeries = medicalHistory.value.surgeries || "";
-    historyFormState.otherNotes = medicalHistory.value.otherNotes || "";
+      medicalHistory.value.currentMedications || '';
+    historyFormState.surgeries = medicalHistory.value.surgeries || '';
+    historyFormState.otherNotes = medicalHistory.value.otherNotes || '';
   } else {
     historyFormState.patientId = selectedPatient.value?.id || null;
-    historyFormState.allergies = "";
-    historyFormState.chronicDiseases = "";
-    historyFormState.dentalHistory = "";
-    historyFormState.currentMedications = "";
-    historyFormState.surgeries = "";
-    historyFormState.otherNotes = "";
+    historyFormState.allergies = '';
+    historyFormState.chronicDiseases = '';
+    historyFormState.dentalHistory = '';
+    historyFormState.currentMedications = '';
+    historyFormState.surgeries = '';
+    historyFormState.otherNotes = '';
   }
   historyModalOpen.value = true;
 };
@@ -182,13 +182,13 @@ const parseFiles = (filesString) => {
   if (!filesString) return [];
   try {
     const fileNames = filesString
-      .split(",")
+      .split(',')
       .map((f) => f.trim())
       .filter((f) => f);
     return fileNames.map((name, index) => ({
       uid: `file-${index}`,
       name: extractFileName(name),
-      status: "done",
+      status: 'done',
       url: name,
       fullPath: name,
     }));
@@ -198,35 +198,35 @@ const parseFiles = (filesString) => {
 };
 
 const extractFileName = (path) => {
-  if (!path) return "";
+  if (!path) return '';
   const parts = path.split(/[/\\]/);
   return parts[parts.length - 1];
 };
 
 const stringifyFiles = (fileList) => {
-  if (!fileList || fileList.length === 0) return "";
+  if (!fileList || fileList.length === 0) return '';
   return fileList
     .map((file) => file.fullPath || file.url || file.name)
-    .join(", ");
+    .join(', ');
 };
 
 const getFileType = (fileName) => {
-  const extension = fileName.split(".").pop().toLowerCase();
-  const imageExtensions = ["jpg", "jpeg", "png", "gif", "bmp", "webp"];
+  const extension = fileName.split('.').pop().toLowerCase();
+  const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'];
 
   if (imageExtensions.includes(extension)) {
-    return "image";
-  } else if (extension === "pdf") {
-    return "pdf";
-  } else if (["doc", "docx", "txt", "xls", "xlsx"].includes(extension)) {
-    return "document";
+    return 'image';
+  } else if (extension === 'pdf') {
+    return 'pdf';
+  } else if (['doc', 'docx', 'txt', 'xls', 'xlsx'].includes(extension)) {
+    return 'document';
   }
-  return "other";
+  return 'other';
 };
 
 const uploadFileToServer = async (file) => {
   const formData = new FormData();
-  formData.append("file", file);
+  formData.append('file', file);
 
   try {
     const response = await $post(`/File/Upload`, formData);
@@ -234,28 +234,28 @@ const uploadFileToServer = async (file) => {
     if (response) {
       return response.content;
     } else {
-      throw new Error("Fayl yuklanmadi");
+      throw new Error('Fayl yuklanmadi');
     }
   } catch (error) {
-    console.error("Faylni yuklashda xatolik:", error);
+    console.error('Faylni yuklashda xatolik:', error);
     throw error;
   }
 };
 
 const handleBeforeUpload = async (file) => {
   const isValidType =
-    file.type.startsWith("image/") ||
-    file.type === "application/pdf" ||
-    file.type === "application/msword" ||
+    file.type.startsWith('image/') ||
+    file.type === 'application/pdf' ||
+    file.type === 'application/msword' ||
     file.type ===
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
-    file.type === "application/vnd.ms-excel" ||
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+    file.type === 'application/vnd.ms-excel' ||
     file.type ===
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
-    file.type === "text/plain";
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+    file.type === 'text/plain';
 
   if (!isValidType) {
-    message.error("Faqat rasm, PDF, Word va Excel fayllarni yuklash mumkin!");
+    message.error('Faqat rasm, PDF, Word va Excel fayllarni yuklash mumkin!');
     return false;
   }
 
@@ -271,13 +271,13 @@ const handleBeforeUpload = async (file) => {
 const handleUploadChange = async (info) => {
   const { file } = info;
 
-  if (file.status !== "removed") {
+  if (file.status !== 'removed') {
     const existingFile = uploadFileList.value.find((f) => f.uid === file.uid);
     if (!existingFile) {
       uploadFileList.value.push({
         uid: file.uid,
         name: file.name,
-        status: "uploading",
+        status: 'uploading',
         originFileObj: file.originFileObj || file,
       });
     }
@@ -287,7 +287,7 @@ const handleUploadChange = async (info) => {
 const handlePreview = async (file) => {
   const fileType = getFileType(file.name);
 
-  if (fileType === "image") {
+  if (fileType === 'image') {
     if (file.url) {
       previewImage.value = `${BASE_URL}/${file.url}`;
     } else if (file.originFileObj) {
@@ -297,7 +297,7 @@ const handlePreview = async (file) => {
     }
     previewVisible.value = true;
     previewTitle.value = file.name;
-  } else if (fileType === "pdf") {
+  } else if (fileType === 'pdf') {
     if (file.url) {
       previewImage.value = `${BASE_URL}/${file.url}`;
       previewVisible.value = true;
@@ -321,9 +321,9 @@ const getBase64 = (file) => {
 
 const handleDownload = (file) => {
   if (file.url) {
-    window.open(`${BASE_URL}/${file.url}`, "_blank");
+    window.open(`${BASE_URL}/${file.url}`, '_blank');
   } else {
-    message.info("Fayl hali yuklanmagan");
+    message.info('Fayl hali yuklanmagan');
   }
 };
 
@@ -333,7 +333,7 @@ const editNote = (note) => {
   formState.title = note.title;
   formState.description = note.description;
   formState.noteDate = note.noteDate ? dayjs(note.noteDate) : null;
-  formState.files = note.files || "";
+  formState.files = note.files || '';
 
   uploadFileList.value = note.attachments || [];
   modalOpen.value = true;
@@ -368,13 +368,13 @@ const handleOk = async () => {
     const uploadedFiles = [];
 
     for (const file of uploadFileList.value) {
-      if (file.originFileObj && file.status !== "done") {
+      if (file.originFileObj && file.status !== 'done') {
         try {
           const serverPath = await uploadFileToServer(file.originFileObj);
           uploadedFiles.push({
             ...file,
             fullPath: serverPath,
-            status: "done",
+            status: 'done',
             url: serverPath,
           });
         } catch (error) {
@@ -402,16 +402,16 @@ const handleOk = async () => {
 
     if (editingNote.value) {
       await $put(`/Note/Update`, noteData);
-      message.success("Eslatma muvaffaqiyatli yangilandi!");
+      message.success('Eslatma muvaffaqiyatli yangilandi!');
     } else {
-      await $post("/Note/Add", noteData);
+      await $post('/Note/Add', noteData);
       message.success("Yangi eslatma muvaffaqiyatli qo'shildi!");
     }
 
     await loadNotes(selectedPatient.value.id);
     modalOpen.value = false;
   } catch (error) {
-    message.error("Xatolik yuz berdi");
+    message.error('Xatolik yuz berdi');
     console.error(error);
   } finally {
     confirmLoading.value = false;
@@ -421,7 +421,7 @@ const handleOk = async () => {
 
 const handleHistoryOk = async () => {
   if (!historyFormState.patientId) {
-    message.error("Bemor tanlanmagan!");
+    message.error('Bemor tanlanmagan!');
     return;
   }
 
@@ -443,16 +443,16 @@ const handleHistoryOk = async () => {
 
     if (medicalHistory.value) {
       await $put(`/MedicalHistory/Update`, historyData);
-      message.success("Tibbiy tarix muvaffaqiyatli yangilandi!");
+      message.success('Tibbiy tarix muvaffaqiyatli yangilandi!');
     } else {
-      await $post("/MedicalHistory/Add", historyData);
+      await $post('/MedicalHistory/Add', historyData);
       message.success("Tibbiy tarix muvaffaqiyatli qo'shildi!");
     }
 
     await loadMedicalHistory(selectedPatient.value.id);
     historyModalOpen.value = false;
   } catch (error) {
-    message.error("Xatolik yuz berdi");
+    message.error('Xatolik yuz berdi');
     console.error(error);
   } finally {
     confirmLoading.value = false;
@@ -461,16 +461,16 @@ const handleHistoryOk = async () => {
 
 const resetForm = () => {
   formState.patientId = selectedPatient.value ? selectedPatient.value.id : null;
-  formState.title = "";
-  formState.description = "";
+  formState.title = '';
+  formState.description = '';
   formState.noteDate = null;
-  formState.files = "";
+  formState.files = '';
   uploadFileList.value = [];
 };
 
 const formatDateTime = (dateTime) => {
-  if (!dateTime) return "";
-  return dayjs(dateTime).locale("uz").format("DD.MM.YYYY");
+  if (!dateTime) return '';
+  return dayjs(dateTime).locale('uz').format('DD.MM.YYYY');
 };
 
 const handleRemoveAttachment = (file) => {
@@ -479,7 +479,7 @@ const handleRemoveAttachment = (file) => {
 };
 
 const clearSearch = () => {
-  searchQuery.value = "";
+  searchQuery.value = '';
   if (patients.value.length > 0) {
     selectedPatient.value = patients.value[0];
     loadNotes(patients.value[0].id);
@@ -488,7 +488,7 @@ const clearSearch = () => {
 };
 
 const disabledDate = (current) => {
-  return current && current > dayjs().endOf("day");
+  return current && current > dayjs().endOf('day');
 };
 
 watch(searchQuery, (newVal) => {
@@ -500,7 +500,7 @@ watch(searchQuery, (newVal) => {
 });
 
 onMounted(() => {
-  dayjs.locale("uz");
+  dayjs.locale('uz');
   loadPatients();
 });
 </script>
@@ -731,7 +731,7 @@ onMounted(() => {
                   class="w-full sm:w-auto"
                 >
                   {{
-                    medicalHistory ? "Tahrirlash" : "+ Tibbiy Tarix Qo'shish"
+                    medicalHistory ? 'Tahrirlash' : "+ Tibbiy Tarix Qo'shish"
                   }}
                 </a-button>
               </div>
@@ -871,7 +871,7 @@ onMounted(() => {
             <a-button class="w-full" type="dashed" :loading="uploadingFiles">
               {{
                 uploadingFiles
-                  ? "Yuklanmoqda..."
+                  ? 'Yuklanmoqda...'
                   : "+ Fayl qo'shish (rasm, pdf, doc, xlsx)"
               }}
             </a-button>
@@ -886,7 +886,7 @@ onMounted(() => {
       <template #footer>
         <a-button @click="modalOpen = false">Bekor qilish</a-button>
         <a-button type="primary" :loading="confirmLoading" @click="handleOk">
-          {{ editingNote ? "Yangilash" : "Qo'shish" }}
+          {{ editingNote ? 'Yangilash' : "Qo'shish" }}
         </a-button>
       </template>
     </a-modal>
@@ -959,7 +959,7 @@ onMounted(() => {
           :loading="confirmLoading"
           @click="handleHistoryOk"
         >
-          {{ medicalHistory ? "Yangilash" : "Qo'shish" }}
+          {{ medicalHistory ? 'Yangilash' : "Qo'shish" }}
         </a-button>
       </template>
     </a-modal>
@@ -1011,6 +1011,6 @@ h4 {
 }
 
 .font {
-  font-family: "Lato", sans-serif;
+  font-family: 'Lato', sans-serif;
 }
 </style>
