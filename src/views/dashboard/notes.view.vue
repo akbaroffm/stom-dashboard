@@ -80,7 +80,7 @@ const BASE_URL = 'http://95.182.119.19:5009/';
 const loadPatients = async () => {
   loading.value = true;
   try {
-    const response = await $get('/Patient/GetAllUsers?CanGetMyPatients=true');
+    const response = await $get('/Patient/GetAllUsers?CanGetMyPatients=true&take=-1');
     if (response && Array.isArray(response)) {
       patients.value = response;
       if (patients.value.length > 0 && !selectedPatient.value) {
@@ -511,6 +511,9 @@ onMounted(() => {
       <div v-if="patients.length === 0" class="text-center py-8 text-gray-500">
         <AlertOutlined class="text-2xl mb-2 mx-auto" />
         <p>Avval bemor qo'shing</p>
+        <a-button type="primary" href="/dashboard/clients" >
+          Bemorlar sahifasiga o'tish
+        </a-button>
       </div>
       <div v-else class="mb-4 sm:mb-6">
         <a-input
@@ -697,7 +700,7 @@ onMounted(() => {
 
                   <div
                     v-if="filteredNotes.length === 0"
-                    class="text-center py-8 text-gray-500"
+                    class="col-span-2 text-center py-8 text-gray-500"
                   >
                     <AlertOutlined class="text-2xl mb-2 mx-auto" />
                     <p>Hali eslatmalar yo'q</p>

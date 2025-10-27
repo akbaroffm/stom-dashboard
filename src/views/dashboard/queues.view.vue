@@ -141,7 +141,7 @@ const loadVisits = async () => {
 
 const loadPatients = async () => {
   try {
-    const response = await $get("Patient/GetAllUsers?CanGetMyPatients=true");
+    const response = await $get("Patient/GetAllUsers?CanGetMyPatients=true&take=-1");
     patients.value = (response || []).filter((user) => user.roleId === 2);
   } catch (error) {
     console.error("Error loading patients:", error);
